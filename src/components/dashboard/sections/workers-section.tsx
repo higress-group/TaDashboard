@@ -96,7 +96,11 @@ import {
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { StatusDot } from '@/components/dashboard/status-dot';
 import { WorkerTraceDialog } from '@/components/dashboard/worker-trace';
+import { WorkerDetailDialog } from '@/components/dashboard/worker-detail-dialog';
 import { CopyButton } from '@/components/dashboard/copy-button';
+import { MetricsMiniCard } from '@/components/dashboard/worker-metrics-mini-card';
+import { BulkActionBar } from '@/components/dashboard/worker-bulk-action-bar';
+import { useWorkerMetrics } from '@/hooks/use-worker-metrics';
 import { workersToCsv, workersToJson } from '@/lib/worker-export';
 import { downloadText, copyToClipboard } from '@/lib/download';
 import {
@@ -120,6 +124,11 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 const ITEMS_PER_PAGE = 12;
+
+function WorkerCardMetrics({ name }: { name: string }) {
+  const { data, isLoading } = useWorkerMetrics(name, { refetchInterval: 30_000 });
+  return <MetricsMiniCard metrics={data ?? null} loading={isLoading} />;
+}
 
 export function WorkersSection() {
   const { data: workers, isLoading, error, isError, refetch, isRefetching } = useWorkers();
@@ -306,12 +315,12 @@ export function WorkersSection() {
   const dateTag = new Date().toISOString().slice(0, 10);
   const handleExportJson = useCallback(() => {
     if (!exportScope.length) return;
-    downloadText(`hiclaw-workers-${dateTag}.json`, workersToJson(exportScope as unknown as Record<string, unknown>[]), 'application/json');
+    downloadText(`hiclaw-workers-${dateTag}.json`, workersToJson(exportScope), 'application/json');
     toast.success(`已导出 ${exportScope.length} 个 Worker 为 JSON`);
   }, [exportScope, dateTag]);
   const handleExportCsv = useCallback(() => {
     if (!exportScope.length) return;
-    downloadText(`hiclaw-workers-${dateTag}.csv`, workersToCsv(exportScope as unknown as Record<string, unknown>[]), 'text/csv');
+    downloadText(`hiclaw-workers-${dateTag}.csv`, workersToCsv(exportScope), 'text/csv');
     toast.success(`已导出 ${exportScope.length} 个 Worker 为 CSV`);
   }, [exportScope, dateTag]);
   const handleCopyJson = useCallback(async () => {
@@ -580,6 +589,11 @@ export function WorkersSection() {
         <span className="ml-auto text-[10px] text-muted-foreground">
           {filteredWorkers.length} / {workers?.length ?? 0}
         </span>
+        <BulkActionBar
+          filteredWorkers={filteredWorkers}
+          filtersActive={phaseFilter.size > 0 || teamFilter !== 'all'}
+          onAfter={() => refetch()}
+        />
       </div>
 
       {/* Toolbar: Select All + Sort + View Toggle */}
@@ -729,6 +743,8 @@ export function WorkersSection() {
                           </div>
                         )}
                       </div>
+
+                      <WorkerCardMetrics name={worker.name} />
 
                       <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
                         <Button
@@ -1215,56 +1231,20 @@ export function WorkersSection() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Worker Detail Dialog */}
-      <Dialog open={!!detailWorker} onOpenChange={() => setDetailWorker(null)}>
-        <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Worker 详情 - {detailWorker?.name}</DialogTitle>
-          </DialogHeader>
-          {detailWorker && (
-            <div className="space-y-3 py-4 text-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <StatusDot phase={detailWorker.phase} />
-                <Badge className={WORKER_PHASE_BADGE_CLASSES[detailWorker.phase]} variant="secondary">
-                  {WORKER_PHASE_LABELS[detailWorker.phase] || detailWorker.phase}
-                </Badge>
-              </div>
-              {[
-                { label: '名称', value: detailWorker.name, copy: true },
-                { label: '状态', value: detailWorker.state, copy: false },
-                { label: '运行时', value: RUNTIME_LABELS[detailWorker.runtime] || detailWorker.runtime, copy: false },
-                { label: '模型', value: detailWorker.model || '-', copy: false },
-                { label: '镜像', value: detailWorker.image || '-', copy: true },
-                { label: '团队', value: detailWorker.team || '-', copy: false },
-                { label: '角色', value: detailWorker.role || '-', copy: false },
-                { label: 'Matrix 用户', value: detailWorker.matrixUserID || '-', copy: true },
-                { label: '房间 ID', value: detailWorker.roomID || '-', copy: true },
-                { label: '容器管理', value: detailWorker.containerManaged ? '是' : '否', copy: false },
-                { label: '容器状态', value: detailWorker.containerState || '-', copy: false },
-                { label: '消息', value: detailWorker.message || '-', copy: false },
-              ].map(({ label, value, copy }) => (
-                <div key={label} className="flex items-center justify-between py-1 border-b border-border/50 gap-2">
-                  <span className="text-muted-foreground shrink-0">{label}</span>
-                  <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
-                    <span className="font-mono text-xs text-right break-all">{value}</span>
-                    {copy && value !== '-' && <CopyButton value={value} title={`复制 ${label}`} />}
-                  </div>
-                </div>
-              ))}
-              {(detailWorker.exposedPorts?.length ?? 0) > 0 && (
-                <div className="pt-2">
-                  <p className="text-muted-foreground mb-1">暴露端口</p>
-                  {detailWorker.exposedPorts?.map((p, i) => (
-                    <div key={i} className="text-xs font-mono">
-                      {p.port} → {p.domain}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Worker Detail Dialog (v2: 5 sections, 6 copy buttons, room/team jumps) */}
+      <WorkerDetailDialog
+        worker={detailWorker}
+        open={!!detailWorker}
+        onOpenChange={(o) => !o && setDetailWorker(null)}
+        onJumpToChat={(roomID) => {
+          setDetailWorker(null);
+          window.dispatchEvent(new CustomEvent('ta-jump-chat', { detail: { roomID } }));
+        }}
+        onJumpToTeam={(teamName) => {
+          setDetailWorker(null);
+          window.dispatchEvent(new CustomEvent('ta-jump-team', { detail: { teamName } }));
+        }}
+      />
 
       {/* Upload Package Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>

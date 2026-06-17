@@ -32,9 +32,10 @@ function csvEscape(value: string): string {
   return value;
 }
 
-export function workersToCsv(workers: ReadonlyArray<Record<string, unknown>>): string {
+export function workersToCsv(workers: ReadonlyArray<unknown>): string {
   const header = CSV_COLUMNS.join(',');
-  const rows = workers.map((w) => {
+  const rows = workers.map((raw) => {
+    const w = raw as Record<string, unknown>;
     const exposed = Array.isArray(w.exposedPorts)
       ? (w.exposedPorts as Array<{ port?: number | string; domain?: string }>)
           .map((p) => `${p.port ?? ''}:${p.domain ?? ''}`)
@@ -58,6 +59,6 @@ export function workersToCsv(workers: ReadonlyArray<Record<string, unknown>>): s
   return [header, ...rows].join('\r\n');
 }
 
-export function workersToJson(workers: ReadonlyArray<Record<string, unknown>>): string {
+export function workersToJson(workers: ReadonlyArray<unknown>): string {
   return JSON.stringify(workers, null, 2);
 }

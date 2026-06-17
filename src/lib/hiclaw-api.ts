@@ -178,6 +178,13 @@ export interface ConsumerResponse {
   status?: string;
 }
 
+export interface WorkerMetrics {
+  cpuPct: number | null;
+  memPct: number | null;
+  diskPct: number | null;
+  updatedAt: string;
+}
+
 export interface ClusterStatus {
   kubeMode: boolean;
   totalWorkers: number;
@@ -289,6 +296,15 @@ export const hiclawApi = {
 
   getWorkerStatus: (name: string) =>
     proxyRequest<WorkerResponse>(`/workers/${encodeURIComponent(name)}/status`),
+
+  getWorkerMetrics: async (name: string): Promise<WorkerMetrics | null> => {
+    const res = await fetch(`/api/hiclaw/workers/${encodeURIComponent(name)}/metrics`, { cache: 'no-store' });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw await ApiClientError.fromResponse(res, 'hiclaw', `/workers/${name}/metrics`);
+    }
+    return (await res.json()) as WorkerMetrics;
+  },
 
   // Teams
   listTeams: async (): Promise<TeamResponse[]> => {

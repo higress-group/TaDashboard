@@ -68,6 +68,10 @@ graph TD
 | `src/lib/sanitize.ts` | [sanitize.md](模块/sanitize.md) | sanitizeHtml + renderInlineMarkdown (remark/rehype 管线) |
 | `src/lib/a2ui.ts` | [a2ui.md](模块/a2ui.md) | A2UI payload 解析 + 渲染器 |
 | `src/app/api/activity/route.ts` | [activity-route.md](模块/activity-route.md) | Activity Feed GET 端点（合并 AuditLog） |
+| `src/lib/worker-metrics.ts` | [worker-metrics.md](模块/worker-metrics.md) | Worker 资源指标 (CPU/内存/磁盘) 拉取 + MiniCard/Group 组件 |
+| `src/lib/phase-timeline.ts` | [phase-timeline.md](模块/phase-timeline.md) | 从 events 流抽取 phase 变更时间线 |
+| `src/hooks/use-trace-retry.ts` | [trace-retry.md](模块/trace-retry.md) | 1s/2s/4s 指数退避重试 + pause/cancel |
+| `src/hooks/use-worker-bulk-action.ts` | [worker-bulk-action.md](模块/worker-bulk-action.md) | 6 动作批量执行 + 进度条 + 失败重试 |
 
 ## 文档约定
 

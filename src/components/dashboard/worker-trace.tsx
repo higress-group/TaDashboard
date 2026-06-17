@@ -1,34 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { History, X, RefreshCw, AlertCircle } from 'lucide-react';
+import { History, X, RefreshCw, AlertCircle, Pause, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PhaseTimeline } from '@/components/dashboard/phase-timeline';
+import { useTraceRetry } from '@/hooks/use-trace-retry';
 
 interface WorkerEventsResponse {
-  events?: Array<{
-    ts?: string;
-    type?: string;
-    level?: string;
-    message?: string;
-    [k: string]: unknown;
-  }>;
-  items?: Array<{
-    ts?: string;
-    type?: string;
-    level?: string;
-    message?: string;
-    [k: string]: unknown;
-  }>;
+  events?: Array<{ ts?: string; type?: string; level?: string; message?: string; [k: string]: unknown }>;
+  items?: Array<{ ts?: string; type?: string; level?: string; message?: string; [k: string]: unknown }>;
 }
 
 async function fetchEvents(name: string): Promise<WorkerEventsResponse | null> {
   const res = await fetch(`/api/hiclaw/workers/${encodeURIComponent(name)}/events`, { cache: 'no-store' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Trace fetch failed: ${res.status}`);
-  return await res.json() as WorkerEventsResponse;
+  return (await res.json()) as WorkerEventsResponse;
 }
 
 export const __test__ = { fetchEvents };
@@ -48,13 +38,17 @@ const LEVEL_COLOR: Record<string, string> = {
 };
 
 export function WorkerTraceDialog({ workerName, open, onOpenChange }: WorkerTraceDialogProps) {
+  // Cache-friendly baseline query (for first paint)
   const query = useQuery({
     queryKey: ['worker-trace', workerName],
     queryFn: () => fetchEvents(workerName ?? ''),
     enabled: open && !!workerName,
-    refetchInterval: open ? 5_000 : false,
-    retry: 1,
+    refetchInterval: false, // polling handled by useTraceRetry
   });
+
+  const [paused, setPaused] = useState(false);
+  const fetcher = useCallback(() => fetchEvents(workerName ?? ''), [workerName]);
+  const { lastError, retry } = useTraceRetry(fetcher, { enabled: open && !!workerName && !paused, intervalMs: 5_000 });
 
   const events = query.data
     ? (query.data.events ?? query.data.items ?? [])
@@ -90,10 +84,21 @@ export function WorkerTraceDialog({ workerName, open, onOpenChange }: WorkerTrac
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => query.refetch()}
-                  aria-label="Refresh trace"
+                  onClick={() => setPaused((p) => !p)}
+                  aria-label={paused ? '恢复轮询' : '暂停轮询'}
+                  title={paused ? '恢复轮询' : '暂停轮询'}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${query.isFetching ? 'animate-spin' : ''}`} />
+                  {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={retry}
+                  aria-label="重试"
+                  title="重试"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -106,6 +111,18 @@ export function WorkerTraceDialog({ workerName, open, onOpenChange }: WorkerTrac
                 </Button>
               </div>
             </header>
+            {lastError && (
+              <div className="px-4 py-2 border-b border-border bg-rose-500/5 flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>刷新失败，联系 Controller 升级。已重试 3 次，仍保留上次成功的数据。</span>
+              </div>
+            )}
+            {workerName && (
+              <div className="px-4 py-3 border-b border-border/50">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Phase 时间线</p>
+                <PhaseTimeline workerName={workerName} refetchInterval={paused ? false : 5_000} />
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
               {query.isLoading ? (
                 <p className="text-xs text-muted-foreground">Loading trace…</p>
