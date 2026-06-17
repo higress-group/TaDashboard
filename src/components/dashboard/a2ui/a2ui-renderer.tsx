@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Send, Sparkles } from 'lucide-react';
@@ -58,13 +58,11 @@ function Node({ node }: { node: A2UINode }) {
   switch (node.kind) {
     case 'card':
       return (
-        <Card className="glass-card border-orange-500/20">
-          <CardContent className="p-3 space-y-2">
+        <SurfaceShell className="border-orange-500/20">
             {node.children.map((child, i) => (
               <Node key={i} node={child} />
             ))}
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       );
     case 'row':
       return (

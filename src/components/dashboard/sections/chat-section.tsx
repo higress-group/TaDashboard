@@ -22,7 +22,7 @@ import {
   Unlock,
   AlertCircle,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -154,8 +154,7 @@ function MatrixLoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
   };
 
   return (
-    <Card className="glass-card border-cyan-500/20">
-      <CardContent className="p-6">
+    <SurfaceShell className="border-cyan-500/20">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
             <Lock className="w-5 h-5 text-cyan-500" />
@@ -232,8 +231,7 @@ function MatrixLoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
             提示: HiClaw 的 Human 用户可以作为 Matrix 账号登录。用户名即 Human 名称，初始密码由 Controller 创建时生成。
           </p>
         </div>
-      </CardContent>
-    </Card>
+    </SurfaceShell>
   );
 }
 
@@ -796,18 +794,15 @@ function HumanPanel() {
         Human-in-the-Loop
       </h3>
       {isLoading ? (
-        <Card className="glass-card">
-          <CardContent className="p-4 space-y-3">
+        <SurfaceShell>
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-4 w-32" />
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ) : humans && humans.length > 0 ? (
         humans.map((human) => {
           const color = getAvatarColor(human.matrixUserID || human.name);
           return (
-            <Card key={human.name} className="glass-card">
-              <CardContent className="p-3">
+            <SurfaceShell key={human.name}>
                 <div className="flex items-center gap-2">
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className={`text-[8px] ${color}`}>
@@ -855,17 +850,14 @@ function HumanPanel() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           );
         })
       ) : (
-        <Card className="glass-card">
-          <CardContent className="p-6 text-center">
+        <SurfaceShell>
             <UserCheck className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">暂无人类用户</p>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       )}
     </div>
   );
@@ -894,8 +886,7 @@ function RoomTopology({ rooms }: { rooms: RoomInfo[] }) {
         房间拓扑
       </h3>
       {topology.map(({ team, workers: teamWorkers, managers: teamManagers }) => (
-        <Card key={team.id} className="glass-card">
-          <CardContent className="p-3">
+        <SurfaceShell key={team.id}>
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-3 h-3 text-emerald-500" />
               <span className="font-medium text-xs">{team.parentTeam}</span>
@@ -924,8 +915,7 @@ function RoomTopology({ rooms }: { rooms: RoomInfo[] }) {
                 <p className="text-[10px] text-muted-foreground">暂无成员</p>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ))}
     </div>
   );

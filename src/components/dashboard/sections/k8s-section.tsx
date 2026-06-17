@@ -19,6 +19,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -248,9 +249,8 @@ function CRDCard({
 
   return (
     <motion.div layout>
-      <Card className="glass-card hover-lift transition-shadow">
-        <CardContent className="p-3">
-          <div className="flex items-start gap-3">
+      <SurfaceShell hover className="transition-shadow">
+        <div className="flex items-start gap-3">
             <div className={`w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0`}>
               <IconComp className={`w-5 h-5 ${config.color}`} />
             </div>
@@ -325,8 +325,7 @@ function CRDCard({
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
     </motion.div>
   );
 }
@@ -469,12 +468,11 @@ export function K8sSection() {
             transition={{ delay: i * 0.05 }}
             layout
           >
-            <Card
-              className={`glass-card cursor-pointer transition-all ${filterKind === crd.kind ? 'ring-2 ring-primary' : ''}`}
+            <SurfaceShell
+              className={`cursor-pointer transition-all ${filterKind === crd.kind ? 'ring-2 ring-primary' : ''}`}
               onClick={() => setFilterKind(filterKind === crd.kind ? 'all' : crd.kind)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-lg ${crd.bgColor} flex items-center justify-center`}>
                     <crd.icon className={`w-5 h-5 ${crd.color}`} />
                   </div>
@@ -497,8 +495,7 @@ export function K8sSection() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         ))}
       </div>
@@ -520,7 +517,7 @@ export function K8sSection() {
       )}
 
       {/* CRD Resources Card View */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Layers className="w-4 h-4" />
@@ -528,8 +525,7 @@ export function K8sSection() {
             <Badge variant="outline" className="text-[10px] ml-auto">{resources.length} 条</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          {isLoading ? (
+        {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full rounded-lg" />
@@ -565,19 +561,17 @@ export function K8sSection() {
               </div>
             </ScrollArea>
           )}
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Reconcile Loop */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <RefreshCw className="w-4 h-4" />
             Controller 调谐循环
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="space-y-2 text-sm text-muted-foreground">
             <p>HiClaw Controller 基于 Kubernetes Controller 模式，持续调谐 CRD 资源：</p>
             <ol className="list-decimal list-inside space-y-1 ml-2">
               <li>Watch 监听 Worker/Team/Human/Manager CRD 变更事件</li>
@@ -596,8 +590,7 @@ export function K8sSection() {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* YAML Preview Dialog */}
       <YamlPreviewDialog

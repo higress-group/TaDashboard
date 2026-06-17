@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Rocket, Terminal, Copy, Check, Server, Container, WifiOff, CheckCircle2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useCallback } from 'react';
@@ -215,9 +215,8 @@ export function QuickstartSection() {
       />
 
       {/* Progress Bar */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+      <SurfaceShell>
+        <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">完成进度</span>
             <Badge variant="outline" className="text-[10px]">
               {effectiveCompleted.size}/{steps.length} 步
@@ -238,13 +237,11 @@ export function QuickstartSection() {
                 ? `进展顺利，还剩 ${steps.length - effectiveCompleted.size} 步`
                 : '按照以下步骤开始使用 HiClaw'}
           </p>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Prerequisites */}
-      <Card className="glass-card border-amber-500/20">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
+      <SurfaceShell className="border-amber-500/20">
+        <div className="flex items-center gap-2 mb-3">
             <Rocket className="w-5 h-5 text-amber-500" />
             <span className="font-medium">前提条件</span>
             <Badge variant="outline" className="text-[10px]">
@@ -271,13 +268,11 @@ export function QuickstartSection() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Deployment Methods */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">部署方式</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">部署方式</h2>
           <Tabs defaultValue="embedded">
             <TabsList>
               <TabsTrigger value="embedded">
@@ -322,8 +317,7 @@ export function QuickstartSection() {
               </div>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Steps */}
       <div className="space-y-4">
@@ -337,9 +331,8 @@ export function QuickstartSection() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}
             >
-              <Card className={`glass-card transition-all ${isCompleted ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : ''}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
+              <SurfaceShell className={`transition-all ${isCompleted ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : ''}`}>
+                <div className="flex items-start gap-4">
                     {/* Step number / completion indicator */}
                     <button
                       onClick={() => toggleStep(step.step)}
@@ -381,17 +374,15 @@ export function QuickstartSection() {
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </SurfaceShell>
             </motion.div>
           );
         })}
       </div>
 
       {/* Next Steps */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">后续步骤</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">后续步骤</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { title: '配置 MCP Server', desc: '集成外部工具和服务到 Worker' },
@@ -408,8 +399,7 @@ export function QuickstartSection() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
     </div>
   );
 }

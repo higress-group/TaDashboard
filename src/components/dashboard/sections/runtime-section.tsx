@@ -4,6 +4,7 @@ import { useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Cpu, Code, Terminal, Layers, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { useWorkers } from '@/hooks/use-hiclaw-workers';
 import { useHiClawStore } from '@/lib/hiclaw-store';
@@ -91,25 +92,22 @@ export function RuntimeSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
           >
-            <Card className="glass-card text-center">
-              <CardContent className="p-4">
-                <Cpu className={`w-8 h-8 ${rt.color} mx-auto mb-2`} />
+            <SurfaceShell className="text-center">
+              <Cpu className={`w-8 h-8 ${rt.color} mx-auto mb-2`} />
                 <p className="font-semibold text-sm">{rt.name}</p>
                 <p className="text-2xl font-bold mt-1">{runtimeCounts[rt.key] || 0}</p>
                 <p className="text-xs text-muted-foreground">Workers</p>
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         ))}
       </div>
 
       {/* Runtime Comparison Table */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader>
           <CardTitle className="text-sm">运行时对比</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
@@ -168,8 +166,7 @@ export function RuntimeSection() {
               </tbody>
             </table>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Runtime Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -180,9 +177,8 @@ export function RuntimeSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + i * 0.1 }}
           >
-            <Card className="glass-card hover-lift">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
+            <SurfaceShell hover>
+              <div className="flex items-center gap-3 mb-3">
                   <div className={`p-2 rounded-lg ${rt.bgColor} border`}>
                     <Cpu className={`w-5 h-5 ${rt.color}`} />
                   </div>
@@ -212,16 +208,14 @@ export function RuntimeSection() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         ))}
       </div>
 
       {/* Runtime Selection Guide */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">选择指南</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">选择指南</h2>
           <div className="space-y-3 text-sm">
             <div className="flex items-start gap-3 p-3 rounded-lg bg-orange-500/5 border border-orange-500/10">
               <Code className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
@@ -256,8 +250,7 @@ export function RuntimeSection() {
               <CheckCircle2 className="w-5 h-5 text-violet-500 shrink-0" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
     </div>
   );
 }

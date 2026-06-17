@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -185,9 +186,8 @@ function HealthCard({
     : null;
 
   return (
-    <Card className="glass-card hover-lift">
-      <CardContent className="p-4">
-        {/* Header: Icon + Name + Status Icon */}
+    <SurfaceShell hover>
+      {/* Header: Icon + Name + Status Icon */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className={`p-1.5 rounded-md ${colors.bg}`}>
@@ -313,8 +313,7 @@ function HealthCard({
             </span>
           )}
         </div>
-      </CardContent>
-    </Card>
+    </SurfaceShell>
   );
 }
 
@@ -574,9 +573,8 @@ export function InfrastructureSection() {
       />
 
       {/* Health Summary Bar */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <SurfaceShell>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">健康状态总览</h3>
               {!infrastructure && (
@@ -625,32 +623,27 @@ export function InfrastructureSection() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Component Health Cards */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="glass-card">
-              <CardContent className="p-4 space-y-2">
-                <div className="h-5 shimmer rounded w-24" />
+            <SurfaceShell key={i}>
+              <div className="h-5 shimmer rounded w-24" />
                 <div className="h-4 shimmer rounded w-16" />
                 <div className="h-2 shimmer rounded w-full" />
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           ))}
         </div>
       ) : filteredComponents.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <HelpCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+        <SurfaceShell>
+          <HelpCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">未获取到基础设施信息</p>
             <p className="text-xs text-muted-foreground mt-1">
               Controller 可能不支持此端点，或连接异常
             </p>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.map(([key, data], i) => {
@@ -678,12 +671,11 @@ export function InfrastructureSection() {
       )}
 
       {/* Resource Overview - Dynamic */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader>
           <CardTitle className="text-sm">资源使用概览</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {resourceItems.map((item) => {
               const ItemIcon = item.icon;
               return (
@@ -702,8 +694,7 @@ export function InfrastructureSection() {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Create Consumer Dialog */}
       <Dialog open={consumerOpen} onOpenChange={setConsumerOpen}>

@@ -14,6 +14,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -68,9 +69,8 @@ function SkillCard({ skill, isExpanded, onToggle }: {
   const colorClass = categoryColors[category] || '';
 
   return (
-    <Card className="glass-card hover-lift">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-1">
+    <SurfaceShell hover>
+      <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-mono text-xs font-medium truncate">{skill.name}</span>
             <Badge className={`text-[10px] shrink-0 ${colorClass}`} variant="secondary">
@@ -151,8 +151,7 @@ function SkillCard({ skill, isExpanded, onToggle }: {
             )}
           </motion.div>
         )}
-      </CardContent>
-    </Card>
+    </SurfaceShell>
   );
 }
 
@@ -325,30 +324,22 @@ export function SkillsSection() {
 
       {/* Stats Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">技能总数</p>
+        <SurfaceShell>
+          <p className="text-xs text-muted-foreground">技能总数</p>
             <p className="text-2xl font-bold">{totalSkillCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">技能类别</p>
+        </SurfaceShell>
+        <SurfaceShell>
+          <p className="text-xs text-muted-foreground">技能类别</p>
             <p className="text-2xl font-bold">{categories}</p>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">活跃 Workers</p>
+        </SurfaceShell>
+        <SurfaceShell>
+          <p className="text-xs text-muted-foreground">活跃 Workers</p>
             <p className="text-2xl font-bold">{workers?.length ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">MCP 服务器</p>
+        </SurfaceShell>
+        <SurfaceShell>
+          <p className="text-xs text-muted-foreground">MCP 服务器</p>
             <p className="text-2xl font-bold">{mcpServers.length}</p>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       </div>
 
       {/* Search */}
@@ -370,14 +361,12 @@ export function SkillsSection() {
           <Badge variant="outline" className="text-[10px]">{filteredSkills.length}</Badge>
         </h2>
         {filteredSkills.length === 0 ? (
-          <Card className="glass-card">
-            <CardContent className="p-8 text-center">
-              <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <SurfaceShell>
+            <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
                 {dynamicSkills.length === 0 ? '暂无技能数据，请先创建 Worker 并配置技能' : '没有匹配的技能'}
               </p>
-            </CardContent>
-          </Card>
+          </SurfaceShell>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredSkills.map((skill, i) => (
@@ -416,9 +405,8 @@ export function SkillsSection() {
                 transition={{ delay: i * 0.02 }}
                 layout
               >
-                <Card className="glass-card hover-lift">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2 mb-2">
+                <SurfaceShell hover>
+                  <div className="flex items-center gap-2 mb-2">
                       <Bot className="w-4 h-4 text-orange-500" />
                       <span className="font-medium text-sm">{workerName}</span>
                     </div>
@@ -429,8 +417,7 @@ export function SkillsSection() {
                         </Badge>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                </SurfaceShell>
               </motion.div>
             ))}
           </div>
@@ -445,16 +432,14 @@ export function SkillsSection() {
           <Badge variant="outline" className="text-[10px]">{filteredMcp.length}</Badge>
         </h2>
         {filteredMcp.length === 0 ? (
-          <Card className="glass-card">
-            <CardContent className="p-8 text-center">
-              <Server className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <SurfaceShell>
+            <Server className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
                 {mcpServers.length === 0
                   ? '暂无 MCP 服务器配置。可在创建/编辑 Worker 时添加 MCP 服务器。'
                   : '没有匹配的 MCP 服务器'}
               </p>
-            </CardContent>
-          </Card>
+          </SurfaceShell>
         ) : (
           <div className="space-y-2">
             {filteredMcp.map((mcp, i) => (
@@ -465,9 +450,8 @@ export function SkillsSection() {
                 transition={{ delay: i * 0.03 }}
                 layout
               >
-                <Card className="glass-card hover-lift">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
+                <SurfaceShell hover>
+                  <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
                           <Wifi className="w-4 h-4 text-emerald-500" />
@@ -512,8 +496,7 @@ export function SkillsSection() {
                         </div>
                       </motion.div>
                     )}
-                  </CardContent>
-                </Card>
+                </SurfaceShell>
               </motion.div>
             ))}
           </div>

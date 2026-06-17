@@ -15,9 +15,9 @@ import {
   ArrowDown,
   Globe,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/dashboard/section-header';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
@@ -38,9 +38,8 @@ export function ArchitectureSection() {
       />
 
       {/* Layered Architecture Diagram */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-6 text-center">HiClaw 分层架构</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-6 text-center">HiClaw 分层架构</h2>
 
           <div className="relative">
             {/* Main Layers Column */}
@@ -234,8 +233,7 @@ export function ArchitectureSection() {
               </motion.div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Key Concepts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -271,23 +269,20 @@ export function ArchitectureSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 + i * 0.1 }}
           >
-            <Card className="glass-card hover-lift">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
+            <SurfaceShell hover>
+              <div className="flex items-center gap-2 mb-2">
                   <item.icon className={`w-5 h-5 ${item.color}`} />
                   <h3 className="font-semibold">{item.title}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         ))}
       </div>
 
       {/* Data Flow Diagram */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">数据流</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">数据流</h2>
           <div className="flex items-center justify-center gap-2 py-4 flex-wrap text-sm">
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
               <Users className="w-4 h-4 text-cyan-500" />
@@ -322,8 +317,7 @@ export function ArchitectureSection() {
           <p className="text-xs text-muted-foreground text-center mt-2">
             所有通信通过 Matrix 协议进行，Higress 网关在入口处进行认证和限流
           </p>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
     </div>
   );
 }

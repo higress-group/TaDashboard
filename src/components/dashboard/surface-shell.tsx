@@ -1,12 +1,10 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-interface SurfaceShellProps {
-  children: ReactNode;
-  className?: string;
+interface SurfaceShellProps extends ComponentPropsWithoutRef<'div'> {
   contentClassName?: string;
   glass?: boolean;
   hover?: boolean;
@@ -20,6 +18,7 @@ export function SurfaceShell({
   glass = true,
   hover = false,
   selected = false,
+  ...rest
 }: SurfaceShellProps) {
   return (
     <Card
@@ -29,6 +28,7 @@ export function SurfaceShell({
         selected && 'ring-2 ring-orange-500/50',
         className,
       )}
+      {...rest}
     >
       <CardContent className={cn('p-4', contentClassName)}>{children}</CardContent>
     </Card>
