@@ -1,30 +1,102 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface CopyButtonProps {
-  text: string;
+  /** The value to copy. */
+  value?: string;
+  /** Legacy alias of `value`; kept for sections that pre-date the rename. */
+  text?: string;
+  /** Optional label shown next to the icon. */
+  label?: string;
+  /** Optional tooltip. */
+  title?: string;
+  /** Visual size. */
+  size?: 'sm' | 'icon';
   className?: string;
+  /** Called after a successful copy. */
+  onCopied?: () => void;
 }
 
-export function CopyButton({ text, className }: CopyButtonProps) {
+const RESET_MS = 1500;
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through
+    }
+  }
+  if (typeof document === 'undefined') return false;
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Copy-to-clipboard button with optimistic visual feedback. Falls back
+ * to a `document.execCommand` path when the modern `navigator.clipboard`
+ * API is unavailable (older browsers, http://, sandboxed iframes).
+ */
+export function CopyButton({ value, text, label, title, size = 'icon', className, onCopied }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolved = value ?? text ?? '';
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    const ok = await copyToClipboard(resolved);
+    if (!ok) return;
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    onCopied?.();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopied(false), RESET_MS);
+  }, [resolved, onCopied]);
 
+  if (size === 'sm') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={cn('h-6 px-2 text-[10px] gap-1', className)}
+        onClick={handleCopy}
+        title={title ?? (copied ? '已复制' : '复制')}
+        aria-label={title ?? 'Copy'}
+      >
+        {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+        {label && <span>{copied ? '已复制' : label}</span>}
+      </Button>
+    );
+  }
   return (
     <Button
+      type="button"
       variant="ghost"
-      size="sm"
-      className={`h-6 w-6 p-0 ${className || ''}`}
+      size="icon"
+      className={cn('h-6 w-6', className)}
       onClick={handleCopy}
-      title="复制"
+      title={title ?? (copied ? '已复制' : '复制')}
+      aria-label={title ?? 'Copy'}
     >
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </Button>

@@ -26,6 +26,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Filter,
+  X,
+  Copy,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,9 +96,19 @@ import {
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { StatusDot } from '@/components/dashboard/status-dot';
 import { WorkerTraceDialog } from '@/components/dashboard/worker-trace';
+import { CopyButton } from '@/components/dashboard/copy-button';
+import { workersToCsv, workersToJson } from '@/lib/worker-export';
+import { downloadText, copyToClipboard } from '@/lib/download';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { SectionHeader } from '@/components/dashboard/section-header';
 import { toast } from 'sonner';
-import type { WorkerResponse, CreateWorkerRequest, UpdateWorkerRequest, WorkerRuntime } from '@/lib/hiclaw-api';
+import type { WorkerResponse, CreateWorkerRequest, UpdateWorkerRequest, WorkerRuntime, WorkerPhase } from '@/lib/hiclaw-api';
 
 // ============ Sort Types ============
 type SortKey = 'name' | 'phase' | 'runtime' | 'team';
@@ -145,20 +158,55 @@ export function WorkersSection() {
   });
 
   const [editForm, setEditForm] = useState<UpdateWorkerRequest & { name?: string }>({});
+  const [phaseFilter, setPhaseFilter] = useState<Set<WorkerPhase>>(new Set());
+  const [teamFilter, setTeamFilter] = useState<string>('all');
 
-  // Filter by search
+  const togglePhase = useCallback((phase: WorkerPhase) => {
+    setPhaseFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(phase)) next.delete(phase);
+      else next.add(phase);
+      return next;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setPhaseFilter(new Set());
+    setTeamFilter('all');
+  }, []);
+
+  // Filter by search + phase + team
   const filteredWorkers = useMemo(() => {
     if (!workers) return [];
-    if (!searchQuery) return workers;
     const q = searchQuery.toLowerCase();
-    return workers.filter(
-      (w) =>
-        w.name?.toLowerCase().includes(q) ||
-        w.model?.toLowerCase().includes(q) ||
-        w.runtime?.toLowerCase().includes(q) ||
-        w.team?.toLowerCase().includes(q)
-    );
-  }, [workers, searchQuery]);
+    return workers.filter((w) => {
+      if (phaseFilter.size > 0 && !phaseFilter.has(w.phase)) return false;
+      if (teamFilter !== 'all' && w.team !== teamFilter) return false;
+      if (q) {
+        return (
+          w.name?.toLowerCase().includes(q) ||
+          w.model?.toLowerCase().includes(q) ||
+          w.runtime?.toLowerCase().includes(q) ||
+          w.team?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [workers, searchQuery, phaseFilter, teamFilter]);
+
+  const phaseCounts = useMemo(() => {
+    const m: Partial<Record<WorkerPhase, number>> = {};
+    if (!workers) return m;
+    for (const w of workers) m[w.phase] = (m[w.phase] ?? 0) + 1;
+    return m;
+  }, [workers]);
+
+  const teamList = useMemo(() => {
+    if (!workers) return [] as string[];
+    const set = new Set<string>();
+    for (const w of workers) if (w.team) set.add(w.team);
+    return Array.from(set).sort();
+  }, [workers]);
 
   // Sort
   const sortedWorkers = useMemo(() => {
@@ -191,7 +239,7 @@ export function WorkersSection() {
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortKey]);
+  }, [searchQuery, sortKey, phaseFilter.size, Array.from(phaseFilter).join(','), teamFilter]);
 
   // Runtime distribution
   const runtimeDist = useMemo(() => {
@@ -253,19 +301,25 @@ export function WorkersSection() {
     setBulkAction(null);
   };
 
-  // Export JSON
-  const handleExport = useCallback(() => {
-    if (!workers) return;
-    const data = JSON.stringify(workers, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hiclaw-workers-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Workers 数据已导出');
-  }, [workers]);
+  // Export helpers (CSV / JSON / clipboard)
+  const exportScope = sortedWorkers;
+  const dateTag = new Date().toISOString().slice(0, 10);
+  const handleExportJson = useCallback(() => {
+    if (!exportScope.length) return;
+    downloadText(`hiclaw-workers-${dateTag}.json`, workersToJson(exportScope as unknown as Record<string, unknown>[]), 'application/json');
+    toast.success(`已导出 ${exportScope.length} 个 Worker 为 JSON`);
+  }, [exportScope, dateTag]);
+  const handleExportCsv = useCallback(() => {
+    if (!exportScope.length) return;
+    downloadText(`hiclaw-workers-${dateTag}.csv`, workersToCsv(exportScope as unknown as Record<string, unknown>[]), 'text/csv');
+    toast.success(`已导出 ${exportScope.length} 个 Worker 为 CSV`);
+  }, [exportScope, dateTag]);
+  const handleCopyJson = useCallback(async () => {
+    if (!exportScope.length) return;
+    const ok = await copyToClipboard(workersToJson(exportScope as unknown as Record<string, unknown>[]));
+    if (ok) toast.success(`已复制 ${exportScope.length} 个 Worker 到剪贴板`);
+    else toast.error('复制失败，请检查浏览器权限');
+  }, [exportScope]);
 
   const handleCreate = () => {
     createWorker.mutate(newWorker, {
@@ -363,10 +417,29 @@ export function WorkersSection() {
         isRefreshing={isRefetching}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={!workers || workers.length === 0}>
-              <Download className="w-4 h-4 mr-1" />
-              导出 JSON
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!exportScope.length}>
+                  <Download className="w-4 h-4 mr-1" />
+                  导出
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportJson}>
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  下载 JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportCsv}>
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  下载 CSV
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCopyJson}>
+                  <Copy className="w-3.5 h-3.5 mr-2" />
+                  复制 JSON 到剪贴板
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
               <Upload className="w-4 h-4 mr-1" />
               上传包
@@ -453,6 +526,61 @@ export function WorkersSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Filter row: phase chips + team dropdown */}
+      <div className="flex items-center gap-3 flex-wrap rounded-lg border border-border/60 bg-card/40 px-3 py-2">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground shrink-0">
+          <Filter className="w-3 h-3" />
+          过滤
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {(['Pending', 'Running', 'Sleeping', 'Updating', 'Stopped', 'Failed', 'Ready'] as WorkerPhase[]).map((p) => {
+            const active = phaseFilter.has(p);
+            const count = phaseCounts[p] ?? 0;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => togglePhase(p)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                  active
+                    ? 'border-orange-500/50 bg-orange-500/10 text-orange-700 dark:text-orange-300'
+                    : 'border-border/60 text-muted-foreground hover:border-orange-500/30'
+                }`}
+                aria-pressed={active}
+              >
+                {WORKER_PHASE_LABELS[p] ?? p} <span className="opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">团队</span>
+          <Select value={teamFilter} onValueChange={setTeamFilter}>
+            <SelectTrigger className="w-[160px] h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部</SelectItem>
+              {teamList.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {(phaseFilter.size > 0 || teamFilter !== 'all') && (
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={clearFilters}>
+            <X className="w-3 h-3 mr-1" />
+            清除过滤
+          </Button>
+        )}
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {filteredWorkers.length} / {workers?.length ?? 0}
+        </span>
+      </div>
 
       {/* Toolbar: Select All + Sort + View Toggle */}
       {filteredWorkers.length > 0 && (
@@ -1102,22 +1230,25 @@ export function WorkersSection() {
                 </Badge>
               </div>
               {[
-                ['名称', detailWorker.name],
-                ['状态', detailWorker.state],
-                ['运行时', RUNTIME_LABELS[detailWorker.runtime] || detailWorker.runtime],
-                ['模型', detailWorker.model || '-'],
-                ['镜像', detailWorker.image || '-'],
-                ['团队', detailWorker.team || '-'],
-                ['角色', detailWorker.role || '-'],
-                ['Matrix 用户', detailWorker.matrixUserID || '-'],
-                ['房间 ID', detailWorker.roomID || '-'],
-                ['容器管理', detailWorker.containerManaged ? '是' : '否'],
-                ['容器状态', detailWorker.containerState || '-'],
-                ['消息', detailWorker.message || '-'],
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-mono text-xs max-w-[60%] text-right break-all">{value}</span>
+                { label: '名称', value: detailWorker.name, copy: true },
+                { label: '状态', value: detailWorker.state, copy: false },
+                { label: '运行时', value: RUNTIME_LABELS[detailWorker.runtime] || detailWorker.runtime, copy: false },
+                { label: '模型', value: detailWorker.model || '-', copy: false },
+                { label: '镜像', value: detailWorker.image || '-', copy: true },
+                { label: '团队', value: detailWorker.team || '-', copy: false },
+                { label: '角色', value: detailWorker.role || '-', copy: false },
+                { label: 'Matrix 用户', value: detailWorker.matrixUserID || '-', copy: true },
+                { label: '房间 ID', value: detailWorker.roomID || '-', copy: true },
+                { label: '容器管理', value: detailWorker.containerManaged ? '是' : '否', copy: false },
+                { label: '容器状态', value: detailWorker.containerState || '-', copy: false },
+                { label: '消息', value: detailWorker.message || '-', copy: false },
+              ].map(({ label, value, copy }) => (
+                <div key={label} className="flex items-center justify-between py-1 border-b border-border/50 gap-2">
+                  <span className="text-muted-foreground shrink-0">{label}</span>
+                  <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                    <span className="font-mono text-xs text-right break-all">{value}</span>
+                    {copy && value !== '-' && <CopyButton value={value} title={`复制 ${label}`} />}
+                  </div>
                 </div>
               ))}
               {(detailWorker.exposedPorts?.length ?? 0) > 0 && (
