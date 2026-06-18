@@ -77,6 +77,8 @@ graph TD
 | `src/hooks/use-hiclaw-store-selectors.ts` | [ui-shell.md](模块/ui-shell.md) | useShallow 选择器，避免无关 store 重渲染 |
 | `src/components/dashboard/section-error-boundary.tsx` | [ui-shell.md](模块/ui-shell.md) | 按 section 隔离 crash 的错误边界 |
 | `src/app/api/hiclaw/workers/[name]/fallback-helper.ts` | [ui-shell.md](模块/ui-shell.md) | metrics/events controller 降级共享逻辑 |
+| `src/lib/query-config.ts` | [query-config.md](模块/query-config.md) | React Query 共享默认值 (staleTime/retry/refetch) |
+| `src/hooks/use-reset-flag.ts` | [query-config.md](模块/query-config.md) | transient 布尔状态 hook (替代 setTimeout 反模式) |
 
 ## 文档约定
 
