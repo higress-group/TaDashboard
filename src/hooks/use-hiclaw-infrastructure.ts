@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import type { InfrastructureInfo } from '@/lib/hiclaw-api';
 
 export function useInfrastructure() {
@@ -7,8 +8,7 @@ export function useInfrastructure() {
     queryKey: ['hiclaw-infrastructure'],
     queryFn: () => hiclawApi.getInfrastructure(),
     refetchInterval: 30000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: (previousData) => previousData,
-    throwOnError: false,
   });
 }

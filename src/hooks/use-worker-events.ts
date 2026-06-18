@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchWorkerEvents, type WorkerEventsResponse } from '@/lib/worker-events';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 
 export interface UseWorkerEventsOptions {
   refetchInterval?: number | false;
@@ -15,9 +16,7 @@ export function useWorkerEvents(name: string | null, options: UseWorkerEventsOpt
     queryFn: () => fetchWorkerEvents(name ?? ''),
     enabled: enabled && !!name,
     refetchInterval,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     staleTime: typeof refetchInterval === 'number' ? Math.min(refetchInterval, 10_000) : 10_000,
   });
 }

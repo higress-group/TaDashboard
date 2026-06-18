@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchMetrics, type WorkerMetrics } from '@/lib/worker-metrics';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 
 export interface UseWorkerMetricsOptions {
   refetchInterval?: number | false;
@@ -14,9 +15,7 @@ export function useWorkerMetrics(name: string | null, options: UseWorkerMetricsO
     queryFn: () => fetchMetrics(name ?? ''),
     enabled: !!name,
     refetchInterval,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     staleTime: typeof refetchInterval === 'number' ? Math.min(refetchInterval, 10_000) : 10_000,
   });
 }

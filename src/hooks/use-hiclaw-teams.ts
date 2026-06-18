@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import type { TeamResponse } from '@/lib/hiclaw-api';
 
 export function useTeams() {
@@ -7,11 +8,7 @@ export function useTeams() {
     queryKey: ['hiclaw-teams'],
     queryFn: () => hiclawApi.listTeams(),
     refetchInterval: 15_000,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: (previousData) => previousData,
-    throwOnError: false,
   });
 }
