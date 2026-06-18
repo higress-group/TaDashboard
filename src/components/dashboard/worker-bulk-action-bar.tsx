@@ -179,7 +179,7 @@ export function BulkActionBar({ filteredWorkers, filtersActive, onAfter }: BulkA
       </AlertDialog>
 
       {(showProgress || showResult) && (
-        <div className="fixed bottom-6 right-6 z-40 w-[min(360px,90vw)] rounded-xl border border-border bg-card shadow-lg p-3 text-xs space-y-2">
+        <div className="fixed bottom-6 right-6 z-40 w-[min(360px,90vw)] rounded-xl border border-border bg-card shadow-lg p-3 text-xs space-y-2" role="status" aria-live="polite" aria-busy={running}>
           <div className="flex items-center justify-between">
             <p className="font-semibold">批量操作进度</p>
             {!running && (
