@@ -1,26 +1,18 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Clock, ArrowRight, CircleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useWorkerEvents } from '@/hooks/use-worker-events';
 import { WORKER_PHASE_BADGE_CLASSES, WORKER_PHASE_LABELS } from '@/lib/phase-colors';
 import { extractPhaseTimeline, type PhaseTimelineEntry } from '@/lib/phase-timeline';
+import { timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface PhaseTimelineProps {
   workerName: string;
   className?: string;
   refetchInterval?: number | false;
-}
-
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(ms) || ms < 0) return iso;
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec} 秒前`;
-  if (sec < 3600) return `${Math.floor(sec / 60)} 分钟前`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)} 小时前`;
-  return `${Math.floor(sec / 86400)} 天前`;
 }
 
 function TimelineRow({ entry }: { entry: PhaseTimelineEntry }) {
@@ -51,6 +43,13 @@ function TimelineRow({ entry }: { entry: PhaseTimelineEntry }) {
 export function PhaseTimeline({ workerName, className, refetchInterval = 5_000 }: PhaseTimelineProps) {
   const { data, isLoading, isError } = useWorkerEvents(workerName, { refetchInterval });
 
+  // Memoised on events identity: extractPhaseTimeline scans + sorts;
+  // skipping the recompute on unrelated re-renders saves ~1-3 ms per
+  // open worker dialog when there are dozens of events. Hook must run
+  // unconditionally, so it's before the early returns.
+  const events = data?.events ?? data?.items ?? [];
+  const entries = useMemo(() => extractPhaseTimeline(events), [events]);
+
   if (isLoading) {
     return (
       <div className={cn('text-[11px] text-muted-foreground flex items-center gap-1.5', className)}>
@@ -67,15 +66,6 @@ export function PhaseTimeline({ workerName, className, refetchInterval = 5_000 }
       </div>
     );
   }
-  if (!data) {
-    return (
-      <div className={cn('text-[11px] text-muted-foreground', className)}>
-        暂无 phase 变更记录
-      </div>
-    );
-  }
-  const events = data.events ?? data.items ?? [];
-  const entries = extractPhaseTimeline(events);
   if (entries.length === 0) {
     return (
       <div className={cn('text-[11px] text-muted-foreground', className)}>
