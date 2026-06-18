@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -191,11 +192,10 @@ function TeamTopologyDiagram({ team, workers, managers }: {
 
 // ============ Sub-component: Copy Button ============
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(1500);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setCopied();
   };
   return (
     <button

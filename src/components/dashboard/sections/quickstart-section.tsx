@@ -6,6 +6,7 @@ import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useCallback } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SectionHeader } from '@/components/dashboard/section-header';
 import { useHiClawStore } from '@/lib/hiclaw-store';
@@ -34,13 +35,12 @@ function saveCompletedSteps(steps: Set<number>) {
 }
 
 function CodeBlock({ code, onCopyAll }: { code: string; onCopyAll?: () => void }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(2000);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
-    setCopied(true);
+    setCopied();
     if (onCopyAll) onCopyAll();
-    setTimeout(() => setCopied(false), 2000);
   };
 
   return (

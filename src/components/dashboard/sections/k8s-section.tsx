@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -103,11 +104,10 @@ function getPhaseBadgeClass(kind: string, phase: string): string {
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(2000);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied();
   };
   return (
     <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleCopy}>
@@ -125,15 +125,14 @@ function YamlPreviewDialog({
   onOpenChange: (v: boolean) => void;
   resource: CRDResource | null;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(2000);
   if (!resource) return null;
 
   const jsonStr = JSON.stringify(resource.raw, null, 2);
 
   const handleCopyAll = () => {
     navigator.clipboard.writeText(jsonStr);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied();
   };
 
   return (

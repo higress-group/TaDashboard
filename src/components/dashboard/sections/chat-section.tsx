@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -121,11 +122,10 @@ function looksLikeMarkdown(body: string): boolean {
 // ============ Copy Button ============
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(2000);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied();
   };
   return (
     <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCopy}>
@@ -155,7 +155,6 @@ function MatrixLoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
 
   return (
     <SurfaceShell className="border-cyan-500/20" contentClassName="p-6">
-              {/* contentClassName lost in migration - defaults to p-4 */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
             <Lock className="w-5 h-5 text-cyan-500" />
