@@ -238,12 +238,17 @@ export function WorkersSection() {
   }, [filteredWorkers, sortKey]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sortedWorkers.length / ITEMS_PER_PAGE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedWorkers = useMemo(() => {
+  const pagination = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(sortedWorkers.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
     const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    return sortedWorkers.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedWorkers, safeCurrentPage]);
+    return {
+      totalPages,
+      safeCurrentPage,
+      paginatedWorkers: sortedWorkers.slice(start, start + ITEMS_PER_PAGE),
+    };
+  }, [sortedWorkers, currentPage]);
+  const { totalPages, safeCurrentPage, paginatedWorkers } = pagination;
 
   // Reset page when filter changes
   useEffect(() => {
