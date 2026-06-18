@@ -79,6 +79,7 @@ graph TD
 | `src/app/api/hiclaw/workers/[name]/fallback-helper.ts` | [ui-shell.md](模块/ui-shell.md) | metrics/events controller 降级共享逻辑 |
 | `src/lib/query-config.ts` | [query-config.md](模块/query-config.md) | React Query 共享默认值 (staleTime/retry/refetch) |
 | `src/hooks/use-reset-flag.ts` | [query-config.md](模块/query-config.md) | transient 布尔状态 hook (替代 setTimeout 反模式) |
+| `src/hooks/use-matrix-store-selectors.ts` | [query-config.md](模块/query-config.md) | useShallow 包装 useMatrixStore，4 个 matrix hook 重渲染收敛 |
 
 ## 文档约定
 

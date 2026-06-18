@@ -55,7 +55,7 @@ new QueryClient({
 - 改一个值影响全部 hooks，不用逐文件替换
 
 ### 跳过例外
-- `useMatrix` / `useMatrixRoomMessages`：ephemeral 轮询（typing 事件 / Matrix sync），用 `staleTime: 5000` 满足更快的事件流
+- `useMatrix` / `useMatrixRoomMessages`：ephemeral 轮询（typing 事件 / Matrix sync），用 `staleTime: 5000` 满足更快的事件流（4 个 matrix hooks 仍 spread `...DEFAULT_QUERY_CONFIG` 拿 retry/throwOnError 等共享项，再覆盖 staleTime / refetchInterval）
 - `useHiclawMutations`：是 `useMutation` 不是 `useQuery`，不适用
 
 ---
@@ -117,3 +117,11 @@ const handleCopy = () => {
 - `ui-shell.md`：SurfaceShell / format / useShallow 选择器
 - `worker-metrics.md`：worker 资源指标获取
 - `phase-timeline.md`：events 流抽取 phase 时间线
+
+## 配套：useMatrixConnectionParams
+
+`src/hooks/use-matrix-store-selectors.ts:1-15` 提供 `useMatrixConnectionParams()`，
+替代原 `useMatrixParams()`（直接 `useMatrixStore()` 无 selector）。
+
+行为等价但避免 store 任意字段变化触发 4 个 matrix hook 重渲染。
+`MatrixState` 必须 export 才能被显式 `useShallow<MatrixState>` 标注。
