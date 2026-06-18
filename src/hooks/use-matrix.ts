@@ -3,12 +3,11 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import { matrixApi, MatrixEvent } from '@/lib/matrix-api';
 import { useMatrixStore } from '@/lib/matrix-store';
 import { collectActiveTypers } from '@/lib/typing';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
+import { useMatrixConnectionParams } from './use-matrix-store-selectors';
 
-// Helper to get Matrix connection params
-function useMatrixParams() {
-  const { homeserver, accessToken, isLoggedIn } = useMatrixStore();
-  return { homeserver, accessToken, isLoggedIn };
-}
+// Helper alias keeps call sites symmetric with the previous non-selector version
+const useMatrixParams = useMatrixConnectionParams;
 
 // ============ Room Messages (Infinite Scroll) ============
 
@@ -31,7 +30,8 @@ export function useMatrixRoomMessages(roomId: string | null) {
     getNextPageParam: (lastPage) => lastPage.end || undefined,
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
     refetchInterval: 10000, // Poll every 10s for new messages
-    staleTime: 5000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 5000, // Override: typing events expire in 6s
   });
 
   // Collect active typers from every page of the message timeline.
@@ -66,7 +66,8 @@ export function useMatrixRoomMembers(roomId: string | null) {
       return matrixApi.getRoomMembers(homeserver, accessToken, roomId);
     },
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
-    staleTime: 30000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 30000, // Members rarely change
   });
 }
 
@@ -82,7 +83,8 @@ export function useMatrixRoomState(roomId: string | null) {
       return matrixApi.getRoomState(homeserver, accessToken, roomId);
     },
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
-    staleTime: 60000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 60000, // Room state rarely changes
   });
 }
 
@@ -98,6 +100,7 @@ export function useMatrixJoinedRooms() {
       return matrixApi.getJoinedRooms(homeserver, accessToken);
     },
     enabled: isLoggedIn && !!homeserver && !!accessToken,
+    ...DEFAULT_QUERY_CONFIG,
     staleTime: 30000,
     refetchInterval: 30000,
   });

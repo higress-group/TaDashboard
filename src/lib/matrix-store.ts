@@ -52,7 +52,7 @@ export function __testing_createMatrixStorage(persistMode: MatrixTokenPersist) {
   return createMatrixStorage(persistMode);
 }
 
-interface MatrixState {
+export interface MatrixState {
   // Connection
   homeserver: string;
   accessToken: string;
