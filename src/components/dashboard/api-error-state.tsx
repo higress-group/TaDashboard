@@ -23,9 +23,9 @@ export function ApiErrorState({ message, onRetry }: ApiErrorStateProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
+    <div className="flex flex-col items-center justify-center py-16 px-4" role="status" aria-live="polite">
       <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
-        <WifiOff className="w-8 h-8 text-amber-500" />
+        <WifiOff className="w-8 h-8 text-amber-500" aria-hidden="true" />
       </div>
       <p className="text-lg font-medium mb-1">未连接到 HiClaw Controller</p>
       <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
