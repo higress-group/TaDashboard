@@ -43,15 +43,15 @@ export class SectionErrorBoundary extends Component<SectionErrorBoundaryProps, S
     if (!this.state.error) return this.props.children;
     const label = this.props.title ?? this.props.sectionName;
     return (
-      <SurfaceShell className="border-rose-500/30" contentClassName="p-4 flex items-start gap-2">
-        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+      <SurfaceShell className="border-rose-500/30" contentClassName="p-4 flex items-start gap-2" role="alert">
+        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-xs text-rose-600 dark:text-rose-400">
             {label ? `${label} 加载失败：` : '本区块加载失败：'}
             {this.state.error.message}
           </p>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] mt-1" onClick={this.reset}>
-            <RotateCcw className="w-3 h-3 mr-1" />
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] mt-1" onClick={this.reset} aria-label="重试加载本区块">
+            <RotateCcw className="w-3 h-3 mr-1" aria-hidden="true" />
             重试
           </Button>
         </div>
