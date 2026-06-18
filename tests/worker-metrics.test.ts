@@ -1,57 +1,50 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchMetrics, isSyntheticWorkerMetrics } from '@/lib/worker-metrics';
-import { SYNTHETIC_METRICS_UPDATED_AT } from '@/lib/worker-fallback';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { fetchMetrics } from '@/lib/worker-metrics';
+import { ApiClientError } from '@/lib/api-errors';
 
 describe('fetchMetrics', () => {
-  const originalFetch = global.fetch;
+  const fetchMock = vi.fn();
 
   beforeEach(() => {
-    vi.restoreAllMocks();
+    fetchMock.mockReset();
+    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    vi.restoreAllMocks();
   });
 
-  it('returns parsed metrics on 200', async () => {
-    const payload = { cpuPct: 12.5, memPct: 33.3, diskPct: 66.6, updatedAt: '2026-06-17T00:00:00Z' };
-    global.fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
-    const result = await fetchMetrics('worker-a');
-    expect(result).toEqual(payload);
+  it('returns parsed JSON on success', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ cpuPct: 30, memPct: 50, diskPct: 70, updatedAt: '2026-06-18T00:00:00Z' }),
+    });
+    const data = await fetchMetrics('worker-1');
+    expect(data).toEqual({ cpuPct: 30, memPct: 50, diskPct: 70, updatedAt: '2026-06-18T00:00:00Z' });
   });
 
-  it('returns null on 404', async () => {
-    global.fetch = vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch;
-    const result = await fetchMetrics('worker-b');
-    expect(result).toBeNull();
+  it('returns null on 404 (no metrics endpoint)', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 });
+    const data = await fetchMetrics('ghost');
+    expect(data).toBeNull();
   });
 
-  it('throws on 5xx', async () => {
-    global.fetch = vi.fn(async () => new Response('boom', { status: 500 })) as unknown as typeof fetch;
-    await expect(fetchMetrics('worker-c')).rejects.toMatchObject({ status: 500 });
+  it('throws ApiClientError on non-404 errors', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: () => Promise.resolve({ error: { code: 'UNAVAILABLE', message: 'unavailable' } }),
+      text: () => Promise.resolve('unavailable'),
+      clone() { return this; },
+    });
+    await expect(fetchMetrics('worker-2')).rejects.toBeInstanceOf(ApiClientError);
   });
 
-  it('throws on 401', async () => {
-    global.fetch = vi.fn(async () => new Response('unauthorized', { status: 401 })) as unknown as typeof fetch;
-    await expect(fetchMetrics('worker-d')).rejects.toMatchObject({ status: 401 });
-  });
-
-  it('encodes worker name', async () => {
-    const spy = vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
-    global.fetch = spy as unknown as typeof fetch;
-    await fetchMetrics('worker with/slash');
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent('worker with/slash')), expect.anything());
-  });
-});
-
-describe('isSyntheticWorkerMetrics', () => {
-  it('detects the synthetic sentinel timestamp', () => {
-    expect(isSyntheticWorkerMetrics({ cpuPct: 1, memPct: 2, diskPct: 3, updatedAt: SYNTHETIC_METRICS_UPDATED_AT })).toBe(true);
-  });
-
-  it('returns false for real timestamps and empty values', () => {
-    expect(isSyntheticWorkerMetrics({ cpuPct: 1, memPct: 2, diskPct: 3, updatedAt: '2026-06-17T00:00:00Z' })).toBe(false);
-    expect(isSyntheticWorkerMetrics(null)).toBe(false);
-    expect(isSyntheticWorkerMetrics(undefined)).toBe(false);
+  it('encodes special characters in worker name', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    await fetchMetrics('worker with space/斜杠');
+    expect(fetchMock).toHaveBeenCalledWith('/api/hiclaw/workers/worker%20with%20space%2F%E6%96%9C%E6%9D%A0/metrics', { cache: 'no-store' });
   });
 });
