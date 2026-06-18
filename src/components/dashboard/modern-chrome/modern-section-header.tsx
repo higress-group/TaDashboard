@@ -10,9 +10,12 @@ interface ModernSectionHeaderProps {
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  /** When true, render the title as <h1> (use only for the active section). */
+  as?: 'h1' | 'h2';
 }
 
-export function ModernSectionHeader({ title, eyebrow, description, actions, className }: ModernSectionHeaderProps) {
+export function ModernSectionHeader({ title, eyebrow, description, actions, className, as = 'h2' }: ModernSectionHeaderProps) {
+  const Heading = as;
   return (
     <motion.header
       initial={{ opacity: 0, y: -4 }}
@@ -26,7 +29,7 @@ export function ModernSectionHeader({ title, eyebrow, description, actions, clas
             {eyebrow}
           </p>
         )}
-        <h2 className="text-lg font-semibold leading-tight text-foreground">{title}</h2>
+        <Heading className="text-lg font-semibold leading-tight text-foreground">{title}</Heading>
         {description && <p className="text-xs text-muted-foreground mt-1 max-w-2xl">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-1 shrink-0">{actions}</div>}

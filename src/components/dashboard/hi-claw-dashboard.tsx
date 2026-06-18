@@ -699,6 +699,7 @@ export function HiClawDashboard() {
                 >
                   {modernChrome && (
                     <ModernSectionHeader
+                      as="h1"
                       eyebrow={activeMeta?.id?.toUpperCase() ?? 'SECTION'}
                       title={activeLabel}
                       description={activeMeta?.description ?? ''}
