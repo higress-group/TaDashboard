@@ -693,7 +693,7 @@ export function TeamsSection() {
                             onOpenChange={(open) => setAddWorkerPopoverOpen(open ? `table-${team.name}` : null)}
                           >
                             <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="添加 Worker">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="添加 Worker" aria-label="添加 Worker">
                                 <UserPlus className="w-3.5 h-3.5" />
                               </Button>
                             </PopoverTrigger>

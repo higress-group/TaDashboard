@@ -110,7 +110,7 @@ function CopyButton({ text }: { text: string }) {
     setCopied();
   };
   return (
-    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleCopy}>
+    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleCopy} aria-label={copied ? '已复制' : '复制'}>
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </Button>
   );

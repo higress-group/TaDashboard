@@ -128,7 +128,7 @@ function CopyButton({ text }: { text: string }) {
     setCopied();
   };
   return (
-    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCopy}>
+    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCopy} aria-label={copied ? '已复制' : '复制'}>
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </Button>
   );
@@ -746,7 +746,7 @@ function ChatPanel({ room }: { room: RoomInfo }) {
             <div className="w-[240px] h-full flex flex-col">
               <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
                 <h4 className="font-semibold text-xs">房间成员 ({memberList.length})</h4>
-                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowMembers(false)}>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowMembers(false)} aria-label="收起成员列表">
                   <ArrowDown className="w-3 h-3" />
                 </Button>
               </div>
