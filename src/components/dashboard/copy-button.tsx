@@ -81,7 +81,7 @@ export function CopyButton({ value, text, label, title, size = 'icon', className
         className={cn('h-6 px-2 text-[10px] gap-1', className)}
         onClick={handleCopy}
         title={title ?? (copied ? '已复制' : '复制')}
-        aria-label={title ?? 'Copy'}
+        aria-label={title ?? (copied ? '已复制' : '复制')}
       >
         {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
         {label && <span>{copied ? '已复制' : label}</span>}
@@ -96,7 +96,7 @@ export function CopyButton({ value, text, label, title, size = 'icon', className
       className={cn('h-6 w-6', className)}
       onClick={handleCopy}
       title={title ?? (copied ? '已复制' : '复制')}
-      aria-label={title ?? 'Copy'}
+      aria-label={title ?? (copied ? '已复制' : '复制')}
     >
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </Button>

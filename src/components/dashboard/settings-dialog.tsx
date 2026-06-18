@@ -142,7 +142,7 @@ export function SettingsDialog() {
                 placeholder="http://localhost:8090"
                 className="flex-1"
               />
-              <Button variant="outline" size="icon" onClick={handleReset} title="重置为默认">
+              <Button variant="outline" size="icon" onClick={handleReset} title="重置为默认" aria-label="重置为默认">
                 <RotateCcw className="w-4 h-4" />
               </Button>
             </div>

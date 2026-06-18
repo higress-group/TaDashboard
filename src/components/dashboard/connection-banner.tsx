@@ -60,7 +60,7 @@ export function ConnectionBanner() {
   const Icon = isAuthError ? ShieldAlert : WifiOff;
 
   return (
-    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-2">
+    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-2" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 min-w-0">
         <Icon className="w-4 h-4 shrink-0" />
         <span className="font-medium shrink-0">

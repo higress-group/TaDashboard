@@ -398,6 +398,8 @@ export function HiClawDashboard() {
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                     title={sidebarCollapsed ? item.label : undefined}
+                    aria-label={item.label}
+                    aria-current={isActive ? 'page' : undefined}
                   >
                     <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-orange-500' : ''}`} />
                     {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
@@ -451,6 +453,7 @@ export function HiClawDashboard() {
                 size="sm"
                 className="w-full justify-center"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                aria-label={sidebarCollapsed ? '展开侧栏' : '折叠侧栏'}
               >
                 {sidebarCollapsed ? (
                   <ChevronRight className="w-4 h-4" />
@@ -486,7 +489,7 @@ export function HiClawDashboard() {
                       </div>
                       <span className="font-bold text-lg">HiClaw</span>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} aria-label="关闭菜单">
                       <X className="w-5 h-5" />
                     </Button>
                   </div>
@@ -505,6 +508,8 @@ export function HiClawDashboard() {
                               ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium'
                               : 'text-muted-foreground hover:bg-accent'
                           }`}
+                          aria-label={item.label}
+                          aria-current={isActive ? 'page' : undefined}
                         >
                           <Icon className={`w-5 h-5 ${isActive ? 'text-orange-500' : ''}`} />
                           <span>{item.label}</span>
@@ -538,6 +543,7 @@ export function HiClawDashboard() {
                 size="icon"
                 className="md:hidden"
                 onClick={() => setMobileMenuOpen(true)}
+                aria-label="打开菜单"
               >
                 <Menu className="w-5 h-5" />
               </Button>
@@ -551,6 +557,7 @@ export function HiClawDashboard() {
                   value={debouncedQuery}
                   onChange={(e) => setDebouncedQuery(e.target.value)}
                   className="pl-9 h-9 bg-background/50"
+                  aria-label="全局搜索"
                 />
               </div>
 
@@ -609,6 +616,7 @@ export function HiClawDashboard() {
                       className="h-9 w-9"
                       onClick={handleRefreshAll}
                       disabled={isRefreshingAll}
+                      aria-label="刷新所有数据"
                     >
                       <RefreshCw className={`h-4 w-4 ${isRefreshingAll ? 'animate-spin' : ''}`} />
                     </Button>
@@ -651,13 +659,14 @@ export function HiClawDashboard() {
                   size="icon"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                   className="h-9 w-9"
+                  aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
                 >
                   <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 </Button>
 
                 {/* Settings */}
-                <Button variant="ghost" size="icon" onClick={openSettings} className="h-9 w-9">
+                <Button variant="ghost" size="icon" onClick={openSettings} className="h-9 w-9" aria-label="打开设置">
                   <Settings className="w-4 h-4" />
                 </Button>
               </div>
@@ -678,7 +687,7 @@ export function HiClawDashboard() {
             </div>
 
             {/* Section Content */}
-            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6" aria-label={`${activeLabel} 区域`}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeSection}

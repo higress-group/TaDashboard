@@ -90,7 +90,7 @@ export function WorkerTraceDialog({ workerName, open, onOpenChange }: WorkerTrac
                   size="icon"
                   className="h-7 w-7"
                   onClick={() => onOpenChange(false)}
-                  aria-label="Close"
+                  aria-label="关闭"
                 >
                   <X className="w-3.5 h-3.5" />
                 </Button>

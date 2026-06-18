@@ -35,10 +35,10 @@ export function NotificationPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label={count > 0 ? `通知（${count} 条未读）` : '通知'}>
           <Bell className="w-4 h-4" />
           {count > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center" aria-hidden="true">
               {count > 9 ? '9+' : count}
             </span>
           )}
