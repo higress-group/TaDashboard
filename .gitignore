@@ -59,3 +59,8 @@ server.log
 
 # npm lock conflicts with bun.lock; we standardize on bun.
 package-lock.json
+
+# Local Prisma dev database (sandbox only)
+prisma/dev.db
+prisma/dev.db-journal
+prisma/db/

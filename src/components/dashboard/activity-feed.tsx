@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
+import { timeAgo } from '@/lib/format';
 
 export interface ActivityFeedItem {
   id: string;
@@ -26,14 +28,6 @@ async function fetchActivity(): Promise<ActivityFeedItem[]> {
   return Array.isArray(body.items) ? body.items : [];
 }
 
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60_000) return `${Math.max(0, Math.floor(ms / 1000))}s ago`;
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  return `${Math.floor(ms / 86_400_000)}d ago`;
-}
-
 const KIND_BADGE: Record<ActivityFeedItem['kind'], string> = {
   audit: 'border-orange-500/30 text-orange-600 dark:text-orange-400',
   matrix: 'border-cyan-500/30 text-cyan-600 dark:text-cyan-400',
@@ -47,7 +41,8 @@ export function ActivityFeed() {
     queryFn: fetchActivity,
     enabled: open,
     refetchInterval: open ? 5_000 : false,
-    staleTime: 0,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 0, // Always refetch when opened
   });
 
   const items = query.data ?? [];
@@ -60,10 +55,12 @@ export function ActivityFeed() {
         size="sm"
         className="h-7 text-xs gap-1"
         onClick={() => setOpen(!open)}
-        title="Activity feed"
+        title="活动"
+        aria-label="活动 feed"
+        aria-expanded={open}
       >
         <Activity className="w-3 h-3" />
-        Activity
+        活动
         {last && (
           <span className="ml-1 text-[9px] text-muted-foreground">
             {timeAgo(last)}
@@ -78,19 +75,21 @@ export function ActivityFeed() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full mt-2 w-80 max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-xl z-50"
+            role="dialog"
+            aria-label="活动 feed"
           >
             <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
-              <h4 className="font-semibold text-xs">Activity feed</h4>
+              <h4 className="font-semibold text-xs">活动 feed</h4>
               <span className="text-[10px] text-muted-foreground">{items.length} / 20</span>
             </div>
             {query.isError ? (
-              <div className="p-3 flex items-center gap-2 text-[10px] text-red-500">
+              <div className="p-3 flex items-center gap-2 text-[10px] text-red-500" role="status">
                 <AlertCircle className="w-3 h-3" />
-                <span>Failed to load feed; showing last cached entries.</span>
+                <span>活动加载失败；显示最近缓存。</span>
               </div>
             ) : items.length === 0 ? (
               <div className="p-6 text-center text-[10px] text-muted-foreground">
-                No recent activity.
+                暂无活动。
               </div>
             ) : (
               <ul className="divide-y divide-border">
