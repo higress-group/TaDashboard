@@ -17,6 +17,7 @@ import {
   CheckSquare,
   Square,
   XSquare,
+  History,
   MoonStar,
   SunMedium,
   Rocket,
@@ -25,8 +26,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Filter,
+  X,
+  Copy,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,9 +94,25 @@ import {
 } from '@/lib/phase-colors';
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { StatusDot } from '@/components/dashboard/status-dot';
+import { WorkerTraceDialog } from '@/components/dashboard/worker-trace';
+import { WorkerDetailDialog } from '@/components/dashboard/worker-detail-dialog';
+import { CopyButton } from '@/components/dashboard/copy-button';
+import { MetricsMiniCard } from '@/components/dashboard/worker-metrics-mini-card';
+import { BulkActionBar } from '@/components/dashboard/worker-bulk-action-bar';
+import { useWorkerMetrics } from '@/hooks/use-worker-metrics';
+import { workersToCsv, workersToJson } from '@/lib/worker-export';
+import { downloadText, copyToClipboard } from '@/lib/download';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { SectionHeader } from '@/components/dashboard/section-header';
+import { SurfaceEmptyState, SurfaceShell, SurfaceSkeletonGrid } from '@/components/dashboard/surface-shell';
 import { toast } from 'sonner';
-import type { WorkerResponse, CreateWorkerRequest, UpdateWorkerRequest, WorkerRuntime } from '@/lib/hiclaw-api';
+import type { WorkerResponse, CreateWorkerRequest, UpdateWorkerRequest, WorkerRuntime, WorkerPhase } from '@/lib/hiclaw-api';
 
 // ============ Sort Types ============
 type SortKey = 'name' | 'phase' | 'runtime' | 'team';
@@ -105,6 +124,11 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 const ITEMS_PER_PAGE = 12;
+
+function WorkerCardMetrics({ name }: { name: string }) {
+  const { data, isLoading } = useWorkerMetrics(name, { refetchInterval: 30_000 });
+  return <MetricsMiniCard metrics={data ?? null} loading={isLoading} />;
+}
 
 export function WorkersSection() {
   const { data: workers, isLoading, error, isError, refetch, isRefetching } = useWorkers();
@@ -122,6 +146,7 @@ export function WorkersSection() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [detailWorker, setDetailWorker] = useState<WorkerResponse | null>(null);
   const [editWorker, setEditWorker] = useState<WorkerResponse | null>(null);
+  const [traceWorker, setTraceWorker] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -142,20 +167,55 @@ export function WorkersSection() {
   });
 
   const [editForm, setEditForm] = useState<UpdateWorkerRequest & { name?: string }>({});
+  const [phaseFilter, setPhaseFilter] = useState<Set<WorkerPhase>>(new Set());
+  const [teamFilter, setTeamFilter] = useState<string>('all');
 
-  // Filter by search
+  const togglePhase = useCallback((phase: WorkerPhase) => {
+    setPhaseFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(phase)) next.delete(phase);
+      else next.add(phase);
+      return next;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setPhaseFilter(new Set());
+    setTeamFilter('all');
+  }, []);
+
+  // Filter by search + phase + team
   const filteredWorkers = useMemo(() => {
     if (!workers) return [];
-    if (!searchQuery) return workers;
     const q = searchQuery.toLowerCase();
-    return workers.filter(
-      (w) =>
-        w.name?.toLowerCase().includes(q) ||
-        w.model?.toLowerCase().includes(q) ||
-        w.runtime?.toLowerCase().includes(q) ||
-        w.team?.toLowerCase().includes(q)
-    );
-  }, [workers, searchQuery]);
+    return workers.filter((w) => {
+      if (phaseFilter.size > 0 && !phaseFilter.has(w.phase)) return false;
+      if (teamFilter !== 'all' && w.team !== teamFilter) return false;
+      if (q) {
+        return (
+          w.name?.toLowerCase().includes(q) ||
+          w.model?.toLowerCase().includes(q) ||
+          w.runtime?.toLowerCase().includes(q) ||
+          w.team?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [workers, searchQuery, phaseFilter, teamFilter]);
+
+  const phaseCounts = useMemo(() => {
+    const m: Partial<Record<WorkerPhase, number>> = {};
+    if (!workers) return m;
+    for (const w of workers) m[w.phase] = (m[w.phase] ?? 0) + 1;
+    return m;
+  }, [workers]);
+
+  const teamList = useMemo(() => {
+    if (!workers) return [] as string[];
+    const set = new Set<string>();
+    for (const w of workers) if (w.team) set.add(w.team);
+    return Array.from(set).sort();
+  }, [workers]);
 
   // Sort
   const sortedWorkers = useMemo(() => {
@@ -178,17 +238,22 @@ export function WorkersSection() {
   }, [filteredWorkers, sortKey]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sortedWorkers.length / ITEMS_PER_PAGE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedWorkers = useMemo(() => {
+  const pagination = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(sortedWorkers.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
     const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    return sortedWorkers.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedWorkers, safeCurrentPage]);
+    return {
+      totalPages,
+      safeCurrentPage,
+      paginatedWorkers: sortedWorkers.slice(start, start + ITEMS_PER_PAGE),
+    };
+  }, [sortedWorkers, currentPage]);
+  const { totalPages, safeCurrentPage, paginatedWorkers } = pagination;
 
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortKey]);
+  }, [searchQuery, sortKey, teamFilter, phaseFilter]);
 
   // Runtime distribution
   const runtimeDist = useMemo(() => {
@@ -250,19 +315,25 @@ export function WorkersSection() {
     setBulkAction(null);
   };
 
-  // Export JSON
-  const handleExport = useCallback(() => {
-    if (!workers) return;
-    const data = JSON.stringify(workers, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hiclaw-workers-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Workers 数据已导出');
-  }, [workers]);
+  // Export helpers (CSV / JSON / clipboard)
+  const exportScope = sortedWorkers;
+  const dateTag = new Date().toISOString().slice(0, 10);
+  const handleExportJson = useCallback(() => {
+    if (!exportScope.length) return;
+    downloadText(`hiclaw-workers-${dateTag}.json`, workersToJson(exportScope), 'application/json');
+    toast.success(`已导出 ${exportScope.length} 个 Worker 为 JSON`);
+  }, [exportScope, dateTag]);
+  const handleExportCsv = useCallback(() => {
+    if (!exportScope.length) return;
+    downloadText(`hiclaw-workers-${dateTag}.csv`, workersToCsv(exportScope), 'text/csv');
+    toast.success(`已导出 ${exportScope.length} 个 Worker 为 CSV`);
+  }, [exportScope, dateTag]);
+  const handleCopyJson = useCallback(async () => {
+    if (!exportScope.length) return;
+    const ok = await copyToClipboard(workersToJson(exportScope as unknown as Record<string, unknown>[]));
+    if (ok) toast.success(`已复制 ${exportScope.length} 个 Worker 到剪贴板`);
+    else toast.error('复制失败，请检查浏览器权限');
+  }, [exportScope]);
 
   const handleCreate = () => {
     createWorker.mutate(newWorker, {
@@ -360,10 +431,29 @@ export function WorkersSection() {
         isRefreshing={isRefetching}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={!workers || workers.length === 0}>
-              <Download className="w-4 h-4 mr-1" />
-              导出 JSON
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!exportScope.length}>
+                  <Download className="w-4 h-4 mr-1" />
+                  导出
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportJson}>
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  下载 JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportCsv}>
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  下载 CSV
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCopyJson}>
+                  <Copy className="w-3.5 h-3.5 mr-2" />
+                  复制 JSON 到剪贴板
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
               <Upload className="w-4 h-4 mr-1" />
               上传包
@@ -387,15 +477,13 @@ export function WorkersSection() {
       {/* Runtime Distribution */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Object.entries(RUNTIME_LABELS).map(([key, label]) => (
-          <Card key={key} className="glass-card">
-            <CardContent className="p-3 flex items-center gap-3">
-              <Bot className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-lg font-bold">{runtimeDist[key] || 0}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <SurfaceShell key={key} hover contentClassName="p-3 flex items-center gap-3">
+            <Bot className="w-5 h-5 text-muted-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-lg font-bold">{runtimeDist[key] || 0}</p>
+            </div>
+          </SurfaceShell>
         ))}
       </div>
 
@@ -451,6 +539,66 @@ export function WorkersSection() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Filter row: phase chips + team dropdown */}
+      <div className="flex items-center gap-3 flex-wrap rounded-lg border border-border/60 bg-card/40 px-3 py-2">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground shrink-0">
+          <Filter className="w-3 h-3" />
+          过滤
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {(['Pending', 'Running', 'Sleeping', 'Updating', 'Stopped', 'Failed', 'Ready'] as WorkerPhase[]).map((p) => {
+            const active = phaseFilter.has(p);
+            const count = phaseCounts[p] ?? 0;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => togglePhase(p)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                  active
+                    ? 'border-orange-500/50 bg-orange-500/10 text-orange-700 dark:text-orange-300'
+                    : 'border-border/60 text-muted-foreground hover:border-orange-500/30'
+                }`}
+                aria-pressed={active}
+              >
+                {WORKER_PHASE_LABELS[p] ?? p} <span className="opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">团队</span>
+          <Select value={teamFilter} onValueChange={setTeamFilter}>
+            <SelectTrigger className="w-[160px] h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部</SelectItem>
+              {teamList.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {(phaseFilter.size > 0 || teamFilter !== 'all') && (
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={clearFilters}>
+            <X className="w-3 h-3 mr-1" />
+            清除过滤
+          </Button>
+        )}
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {filteredWorkers.length} / {workers?.length ?? 0}
+        </span>
+        <BulkActionBar
+          filteredWorkers={filteredWorkers}
+          filtersActive={phaseFilter.size > 0 || teamFilter !== 'all'}
+          onAfter={() => refetch()}
+        />
+      </div>
+
       {/* Toolbar: Select All + Sort + View Toggle */}
       {filteredWorkers.length > 0 && (
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -503,41 +651,27 @@ export function WorkersSection() {
       {/* Workers List */}
       {isLoading ? (
         viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="glass-card">
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-5 w-32 rounded shimmer" />
-                  <div className="h-4 w-24 rounded shimmer" />
-                  <div className="h-4 w-20 rounded shimmer" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <SurfaceSkeletonGrid count={6} cols={3} rows={3} />
         ) : (
-          <Card className="glass-card">
-            <CardContent className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-8 w-full rounded shimmer" />
-              ))}
-            </CardContent>
-          </Card>
+          <SurfaceShell contentClassName="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-8 w-full rounded shimmer" />
+            ))}
+          </SurfaceShell>
         )
       ) : filteredWorkers.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <Bot className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? '没有匹配的 Worker' : '暂无 Worker'}
-            </p>
-            {!searchQuery && (
-              <Button variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+        <SurfaceEmptyState
+          icon={<Bot className="w-12 h-12" />}
+          message={searchQuery ? '没有匹配的 Worker' : '暂无 Worker'}
+          action={
+            !searchQuery ? (
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
                 <Plus className="w-4 h-4 mr-1" />
                 创建第一个 Worker
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {/* Card View */}
@@ -551,53 +685,54 @@ export function WorkersSection() {
                   transition={{ delay: i * 0.03 }}
                   layout
                 >
-                  <Card className={`glass-card hover-lift ${selectedWorkers.has(worker.name) ? 'ring-2 ring-orange-500/50' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button
-                            onClick={() => toggleSelect(worker.name)}
-                            className="shrink-0"
-                            title={selectedWorkers.has(worker.name) ? '取消选择' : '选择'}
-                          >
-                            {selectedWorkers.has(worker.name) ? (
-                              <CheckSquare className="w-4 h-4 text-orange-500" />
-                            ) : (
-                              <Square className="w-4 h-4 text-muted-foreground/50 hover:text-muted-foreground" />
-                            )}
-                          </button>
-                          <StatusDot phase={worker.phase} />
-                          <Bot className="w-5 h-5 text-orange-500 shrink-0" />
-                          <span className="font-medium truncate">{worker.name}</span>
-                        </div>
-                        <Badge className={WORKER_PHASE_BADGE_CLASSES[worker.phase]} variant="secondary">
-                          {WORKER_PHASE_LABELS[worker.phase] || worker.phase}
+                  <SurfaceShell hover selected={selectedWorkers.has(worker.name)} contentClassName="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          onClick={() => toggleSelect(worker.name)}
+                          className="shrink-0"
+                          title={selectedWorkers.has(worker.name) ? '取消选择' : '选择'}
+                        >
+                          {selectedWorkers.has(worker.name) ? (
+                            <CheckSquare className="w-4 h-4 text-orange-500" />
+                          ) : (
+                            <Square className="w-4 h-4 text-muted-foreground/50 hover:text-muted-foreground" />
+                          )}
+                        </button>
+                        <StatusDot phase={worker.phase} />
+                        <Bot className="w-5 h-5 text-orange-500 shrink-0" />
+                        <span className="font-medium truncate">{worker.name}</span>
+                      </div>
+                      <Badge className={WORKER_PHASE_BADGE_CLASSES[worker.phase]} variant="secondary">
+                        {WORKER_PHASE_LABELS[worker.phase] || worker.phase}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">模型</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-mono text-xs truncate ml-2 cursor-help">{worker.model || '-'}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>完整模型名: {worker.model || '未设置'}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">运行时</span>
+                        <Badge variant="outline" className="text-xs">
+                          {RUNTIME_LABELS[worker.runtime] || worker.runtime}
                         </Badge>
                       </div>
+                      {worker.team && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">团队</span>
+                          <span className="text-xs truncate ml-2">{worker.team}</span>
+                        </div>
+                      )}
+                    </div>
 
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">模型</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="font-mono text-xs truncate ml-2 cursor-help">{worker.model || '-'}</span>
-                            </TooltipTrigger>
-                            <TooltipContent>完整模型名: {worker.model || '未设置'}</TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">运行时</span>
-                          <Badge variant="outline" className="text-xs">
-                            {RUNTIME_LABELS[worker.runtime] || worker.runtime}
-                          </Badge>
-                        </div>
-                        {worker.team && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">团队</span>
-                            <span className="text-xs truncate ml-2">{worker.team}</span>
-                          </div>
-                        )}
-                      </div>
+                    <WorkerCardMetrics name={worker.name} />
 
                       <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
                         <Button
@@ -608,6 +743,15 @@ export function WorkersSection() {
                         >
                           <Eye className="w-3 h-3 mr-1" />
                           详情
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setTraceWorker(worker.name)}
+                          title="View trace timeline"
+                        >
+                          <History className="w-3 h-3" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -656,8 +800,7 @@ export function WorkersSection() {
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                  </SurfaceShell>
                 </motion.div>
               ))}
             </div>
@@ -665,7 +808,7 @@ export function WorkersSection() {
 
           {/* Table View */}
           {viewMode === 'table' && (
-            <Card className="glass-card overflow-hidden">
+            <SurfaceShell contentClassName="p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -797,7 +940,7 @@ export function WorkersSection() {
                   ))}
                 </TableBody>
               </Table>
-            </Card>
+            </SurfaceShell>
           )}
 
           {/* Pagination */}
@@ -1063,61 +1206,32 @@ export function WorkersSection() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              删除
+            <AlertDialogCancel disabled={deleteWorker.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteWorker.isPending}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteWorker.isPending ? '删除中…' : '删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Worker Detail Dialog */}
-      <Dialog open={!!detailWorker} onOpenChange={() => setDetailWorker(null)}>
-        <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Worker 详情 - {detailWorker?.name}</DialogTitle>
-          </DialogHeader>
-          {detailWorker && (
-            <div className="space-y-3 py-4 text-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <StatusDot phase={detailWorker.phase} />
-                <Badge className={WORKER_PHASE_BADGE_CLASSES[detailWorker.phase]} variant="secondary">
-                  {WORKER_PHASE_LABELS[detailWorker.phase] || detailWorker.phase}
-                </Badge>
-              </div>
-              {[
-                ['名称', detailWorker.name],
-                ['状态', detailWorker.state],
-                ['运行时', RUNTIME_LABELS[detailWorker.runtime] || detailWorker.runtime],
-                ['模型', detailWorker.model || '-'],
-                ['镜像', detailWorker.image || '-'],
-                ['团队', detailWorker.team || '-'],
-                ['角色', detailWorker.role || '-'],
-                ['Matrix 用户', detailWorker.matrixUserID || '-'],
-                ['房间 ID', detailWorker.roomID || '-'],
-                ['容器管理', detailWorker.containerManaged ? '是' : '否'],
-                ['容器状态', detailWorker.containerState || '-'],
-                ['消息', detailWorker.message || '-'],
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-mono text-xs max-w-[60%] text-right break-all">{value}</span>
-                </div>
-              ))}
-              {(detailWorker.exposedPorts?.length ?? 0) > 0 && (
-                <div className="pt-2">
-                  <p className="text-muted-foreground mb-1">暴露端口</p>
-                  {detailWorker.exposedPorts?.map((p, i) => (
-                    <div key={i} className="text-xs font-mono">
-                      {p.port} → {p.domain}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Worker Detail Dialog (v2: 5 sections, 6 copy buttons, room/team jumps) */}
+      <WorkerDetailDialog
+        worker={detailWorker}
+        open={!!detailWorker}
+        onOpenChange={(o) => !o && setDetailWorker(null)}
+        onJumpToChat={(roomID) => {
+          setDetailWorker(null);
+          window.dispatchEvent(new CustomEvent('ta-jump-chat', { detail: { roomID } }));
+        }}
+        onJumpToTeam={(teamName) => {
+          setDetailWorker(null);
+          window.dispatchEvent(new CustomEvent('ta-jump-team', { detail: { teamName } }));
+        }}
+      />
 
       {/* Upload Package Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
@@ -1137,6 +1251,12 @@ export function WorkersSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <WorkerTraceDialog
+        workerName={traceWorker}
+        open={traceWorker !== null}
+        onOpenChange={(open) => { if (!open) setTraceWorker(null); }}
+      />
     </div>
   );
 }

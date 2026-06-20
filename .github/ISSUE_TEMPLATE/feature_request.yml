@@ -1,0 +1,37 @@
+name: Feature Request
+description: Propose a new feature or a meaningful change in scope. Smaller refinements can go straight to a PR discussion.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operator pain point does this address?
+      placeholder: |
+        Today I have to ... because ... which is slow / risky / manual.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: |
+        Add a new panel that ... using the existing ...
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: |
+        - Extend the existing ... instead of adding ...
+        - Wait until HiClaw Controller exposes ...
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope impact
+      description: Does this stay inside the HiClaw dashboard charter or pull in unrelated systems?
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk class
+      options:
+        - Low — UI only, no API surface change
+        - Medium — new proxy route or new audit action
+        - High — changes authentication, persistence, or upstream contract

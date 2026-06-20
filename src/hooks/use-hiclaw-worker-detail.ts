@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import type { WorkerResponse } from '@/lib/hiclaw-api';
 
 export function useWorkerDetail(name: string | undefined) {
@@ -8,8 +9,7 @@ export function useWorkerDetail(name: string | undefined) {
     queryFn: () => hiclawApi.getWorker(name!),
     enabled: !!name,
     refetchInterval: 15000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: (previousData) => previousData,
-    throwOnError: false,
   });
 }

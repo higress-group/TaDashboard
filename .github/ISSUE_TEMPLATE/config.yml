@@ -1,0 +1,16 @@
+# TaDashboard issue types
+
+## Use Bug Report when
+- Something that worked before now fails, or new behaviour is observably wrong.
+- Reproduction steps are concrete and repeatable.
+
+## Use Feature Request when
+- You want a new capability that did not previously exist.
+- You want to change the charter of an existing section (e.g. add a column, change defaults).
+
+## Skip the template and open a discussion when
+- You are unsure whether something is in scope.
+- You want to ask "how do I ...?" — those go to the team chat first.
+
+## Charter reminder
+TaDashboard only serves the HiClaw Controller fleet. Requests that pull in unrelated systems (other Kubernetes operators, generic monitoring, etc.) will be declined.

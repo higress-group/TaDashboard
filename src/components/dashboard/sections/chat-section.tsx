@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -22,7 +23,7 @@ import {
   Unlock,
   AlertCircle,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,9 +54,14 @@ import {
 } from '@/hooks/use-matrix';
 import { useMatrixStore } from '@/lib/matrix-store';
 import { useHiClawStore } from '@/lib/hiclaw-store';
-import { sanitizeHtml } from '@/lib/utils';
+import { sanitizeHtml, renderInlineMarkdown } from '@/lib/sanitize';
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { SectionHeader } from '@/components/dashboard/section-header';
+import { TypingRow } from '@/components/dashboard/chat/typing-row';
+import { createTypingPublisher } from '@/lib/typing';
+import { parseA2UIPayload, renderA2UI } from '@/lib/a2ui';
+import { useUiStore } from '@/lib/ui-store';
+import { A2UIRenderer } from '@/components/dashboard/a2ui/a2ui-renderer';
 
 // ============ Helpers ============
 
@@ -104,17 +110,25 @@ function isDifferentDay(ts1: number, ts2: number): boolean {
     d1.getDate() !== d2.getDate();
 }
 
+// Lightweight heuristic: a body that contains Markdown markers
+// (`[` link, `*` emphasis, backtick code, fenced ```) or any HTML
+// tag benefits from the renderer. Plain prose falls through to the
+// `<p class="whitespace-pre-wrap">` branch.
+function looksLikeMarkdown(body: string): boolean {
+  if (!body) return false;
+  return /(\[[^\]]+\]\(|`[^`]+`|\*\*|__|`{3}|<\/?[a-z][^>]*>)/i.test(body);
+}
+
 // ============ Copy Button ============
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(2000);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied();
   };
   return (
-    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCopy}>
+    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCopy} aria-label={copied ? '已复制' : '复制'}>
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </Button>
   );
@@ -140,8 +154,7 @@ function MatrixLoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
   };
 
   return (
-    <Card className="glass-card border-cyan-500/20">
-      <CardContent className="p-6">
+    <SurfaceShell className="border-cyan-500/20" contentClassName="p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
             <Lock className="w-5 h-5 text-cyan-500" />
@@ -218,8 +231,7 @@ function MatrixLoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
             提示: HiClaw 的 Human 用户可以作为 Matrix 账号登录。用户名即 Human 名称，初始密码由 Controller 创建时生成。
           </p>
         </div>
-      </CardContent>
-    </Card>
+    </SurfaceShell>
   );
 }
 
@@ -329,6 +341,7 @@ function DateSeparator({ date }: { date: string }) {
 // ============ Message Bubble ============
 
 function MessageBubble({ message, showSender }: { message: DisplayMessage; showSender: boolean }) {
+  const modernChatEnabled = useUiStore((s) => s.modernChatEnabled);
   const time = formatTime(message.timestamp);
   const isNotice = message.type === 'm.notice';
   const avatarColor = getAvatarColor(message.sender);
@@ -365,14 +378,46 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
                 : 'bg-muted/80 text-foreground rounded-tl-sm'
           }`}
         >
-          {message.formattedContent ? (
-            <div
-              className="matrix-html-content [&>p]:mb-1 [&>br]:block [&>pre]:bg-muted/50 [&>pre]:rounded [&>pre]:p-2 [&>code]:bg-muted/50 [&>code]:px-1 [&>code]:rounded text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.formattedContent) }}
-            />
-          ) : (
-            <p className="whitespace-pre-wrap">{message.content}</p>
-          )}
+          {(() => {
+            // Legacy chat path: no A2UI, no Markdown, no TypingRow. R7-2.
+            if (!modernChatEnabled) {
+              return (
+                <p className="whitespace-pre-wrap break-words text-sm">
+                  {message.content}
+                </p>
+              );
+            }
+            // A2UI surface takes priority — Agents that emit a structured
+            // form should never have their JSON dumped as text.
+            const a2ui = parseA2UIPayload(message.rawContent as Record<string, unknown> | undefined);
+            if (a2ui) {
+              return (
+                <A2UIRenderer
+                  node={renderA2UI(a2ui.doc)}
+                  schemaVersion={a2ui.doc.schemaVersion}
+                  schemaRecognized={a2ui.schemaRecognized}
+                  hasUnsupportedComponents={a2ui.hasUnsupportedComponents}
+                />
+              );
+            }
+            if (message.formattedContent) {
+              return (
+                <div
+                  className="matrix-html-content [&>p]:mb-1 [&>br]:block [&>pre]:bg-muted/50 [&>pre]:rounded [&>pre]:p-2 [&>code]:bg-muted/50 [&>code]:px-1 [&>code]:rounded text-sm"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.formattedContent) }}
+                />
+              );
+            }
+            if (looksLikeMarkdown(message.content)) {
+              return (
+                <div
+                  className="matrix-html-content [&>p]:mb-1 [&>br]:block [&>pre]:bg-muted/50 [&>pre]:rounded [&>pre]:p-2 [&>code]:bg-muted/50 [&>code]:px-1 [&>code]:rounded text-sm"
+                  dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(message.content) }}
+                />
+              );
+            }
+            return <p className="whitespace-pre-wrap">{message.content}</p>;
+          })()}
         </div>
       </div>
     </div>
@@ -383,6 +428,7 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
 
 function ChatPanel({ room }: { room: RoomInfo }) {
   const { userId, isLoggedIn } = useMatrixStore();
+  const modernChatEnabled = useUiStore((s) => s.modernChatEnabled);
   const messagesQuery = useMatrixRoomMessages(room.id);
   const membersQuery = useMatrixRoomMembers(room.id);
   const stateQuery = useMatrixRoomState(room.id);
@@ -392,6 +438,28 @@ function ChatPanel({ room }: { room: RoomInfo }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingPublisherRef = useRef<ReturnType<typeof createTypingPublisher> | null>(null);
+
+  // R1-1: publish typing notifications while the local user composes.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const publisher = createTypingPublisher({ roomId: room.id, intervalMs: 4000 });
+    typingPublisherRef.current = publisher;
+    return () => {
+      publisher.dispose();
+      typingPublisherRef.current = null;
+    };
+  }, [room.id, isLoggedIn]);
+
+  useEffect(() => {
+    const publisher = typingPublisherRef.current;
+    if (!publisher) return;
+    if (inputValue.trim().length > 0) {
+      publisher.notify();
+    } else {
+      publisher.stop();
+    }
+  }, [inputValue]);
 
   // Flatten all pages of messages
   const allMessages = useMemo(() => {
@@ -625,6 +693,9 @@ function ChatPanel({ room }: { room: RoomInfo }) {
 
         {/* Input Area */}
         <div className="border-t border-border p-3 shrink-0 bg-card/30">
+          {modernChatEnabled && (
+            <TypingRow typingUsers={messagesQuery.typingUsers} selfUserId={userId} />
+          )}
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <textarea
@@ -675,7 +746,7 @@ function ChatPanel({ room }: { room: RoomInfo }) {
             <div className="w-[240px] h-full flex flex-col">
               <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
                 <h4 className="font-semibold text-xs">房间成员 ({memberList.length})</h4>
-                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowMembers(false)}>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowMembers(false)} aria-label="收起成员列表">
                   <ArrowDown className="w-3 h-3" />
                 </Button>
               </div>
@@ -723,18 +794,15 @@ function HumanPanel() {
         Human-in-the-Loop
       </h3>
       {isLoading ? (
-        <Card className="glass-card">
-          <CardContent className="p-4 space-y-3">
+        <SurfaceShell>
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-4 w-32" />
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ) : humans && humans.length > 0 ? (
         humans.map((human) => {
           const color = getAvatarColor(human.matrixUserID || human.name);
           return (
-            <Card key={human.name} className="glass-card">
-              <CardContent className="p-3">
+            <SurfaceShell key={human.name} contentClassName="p-3">
                 <div className="flex items-center gap-2">
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className={`text-[8px] ${color}`}>
@@ -782,17 +850,14 @@ function HumanPanel() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           );
         })
       ) : (
-        <Card className="glass-card">
-          <CardContent className="p-6 text-center">
+        <SurfaceShell>
             <UserCheck className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">暂无人类用户</p>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       )}
     </div>
   );
@@ -821,8 +886,7 @@ function RoomTopology({ rooms }: { rooms: RoomInfo[] }) {
         房间拓扑
       </h3>
       {topology.map(({ team, workers: teamWorkers, managers: teamManagers }) => (
-        <Card key={team.id} className="glass-card">
-          <CardContent className="p-3">
+        <SurfaceShell key={team.id} contentClassName="p-3">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-3 h-3 text-emerald-500" />
               <span className="font-medium text-xs">{team.parentTeam}</span>
@@ -851,8 +915,7 @@ function RoomTopology({ rooms }: { rooms: RoomInfo[] }) {
                 <p className="text-[10px] text-muted-foreground">暂无成员</p>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ))}
     </div>
   );

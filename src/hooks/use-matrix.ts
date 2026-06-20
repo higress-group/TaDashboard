@@ -1,20 +1,21 @@
 // React Query hooks for Matrix Client-Server API
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { matrixApi, MatrixEvent } from '@/lib/matrix-api';
 import { useMatrixStore } from '@/lib/matrix-store';
+import { collectActiveTypers } from '@/lib/typing';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
+import { useMatrixConnectionParams } from './use-matrix-store-selectors';
 
-// Helper to get Matrix connection params
-function useMatrixParams() {
-  const { homeserver, accessToken, isLoggedIn } = useMatrixStore();
-  return { homeserver, accessToken, isLoggedIn };
-}
+// Helper alias keeps call sites symmetric with the previous non-selector version
+const useMatrixParams = useMatrixConnectionParams;
 
 // ============ Room Messages (Infinite Scroll) ============
 
 export function useMatrixRoomMessages(roomId: string | null) {
   const { homeserver, accessToken, isLoggedIn } = useMatrixParams();
 
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: ['matrix-messages', roomId],
     queryFn: async ({ pageParam }) => {
       if (!homeserver || !accessToken || !roomId) {
@@ -30,8 +31,29 @@ export function useMatrixRoomMessages(roomId: string | null) {
     getNextPageParam: (lastPage) => lastPage.end || undefined,
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
     refetchInterval: 10000, // Poll every 10s for new messages
-    staleTime: 5000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 5000, // Override: typing events expire in 6s
   });
+
+  // Collect active typers from every page of the message timeline.
+  // Typing events are ephemeral and arrive interleaved with normal
+  // messages; the observer prunes senders whose last typing event is
+  // older than 6 seconds. Memoised on pages identity to avoid
+  // re-computing the O(N*M) scan on unrelated re-renders.
+  const typingUsers = useMemo(() => {
+    const pages = query.data?.pages ?? [];
+    const typingEvents: { sender: string; ts: number }[] = [];
+    for (const page of pages) {
+      for (const event of page.chunk ?? []) {
+        if (event.type === 'm.typing') {
+          typingEvents.push({ sender: event.sender, ts: event.origin_server_ts });
+        }
+      }
+    }
+    return collectActiveTypers(typingEvents, 6000);
+  }, [query.data]);
+
+  return Object.assign(query, { typingUsers });
 }
 
 // ============ Room Members ============
@@ -46,7 +68,8 @@ export function useMatrixRoomMembers(roomId: string | null) {
       return matrixApi.getRoomMembers(homeserver, accessToken, roomId);
     },
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
-    staleTime: 30000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 30000, // Members rarely change
   });
 }
 
@@ -62,7 +85,8 @@ export function useMatrixRoomState(roomId: string | null) {
       return matrixApi.getRoomState(homeserver, accessToken, roomId);
     },
     enabled: isLoggedIn && !!roomId && !!homeserver && !!accessToken,
-    staleTime: 60000,
+    ...DEFAULT_QUERY_CONFIG,
+    staleTime: 60000, // Room state rarely changes
   });
 }
 
@@ -78,6 +102,7 @@ export function useMatrixJoinedRooms() {
       return matrixApi.getJoinedRooms(homeserver, accessToken);
     },
     enabled: isLoggedIn && !!homeserver && !!accessToken,
+    ...DEFAULT_QUERY_CONFIG,
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -142,6 +167,7 @@ export interface DisplayMessage {
   senderShort: string;
   content: string;
   formattedContent?: string;
+  rawContent?: Record<string, unknown>;
   timestamp: number;
   type: string;
   isMe: boolean;
@@ -161,6 +187,7 @@ export function formatMatrixEvent(event: MatrixEvent, currentUserId: string): Di
     senderShort,
     content: event.content.body || '',
     formattedContent: event.content.formatted_body,
+    rawContent: event.content as Record<string, unknown>,
     timestamp: event.origin_server_ts,
     type: event.content.msgtype || 'm.text',
     isMe: event.sender === currentUserId,

@@ -1,8 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Prisma schema for the dashboard's local SQLite database.
+//
+// The local database only holds dashboard-side state (notifications,
+// audit trails, UI preferences, connection attempts). Authoritative
+// resource state (Workers / Teams / Humans / Managers / etc.) is owned
+// by the HiClaw Controller.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +14,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+/// Persisted dashboard notifications so they survive page reloads.
+model Notification {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// A history of controller health-check attempts. Useful when
+/// debugging flap or auth rotation issues.
+model ConnectionAttempt {
+  id        String   @id @default(cuid())
+  url       String
+  success   Boolean
+  latency   Int?
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// User-tunable preferences persisted across sessions.
+model UserPreference {
+  key       String   @id
+  value     String
   updatedAt DateTime @updatedAt
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// Audit trail of destructive or notable actions performed from
+/// the dashboard (create/delete/wake/sleep/etc.).
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  resource   String
+  resourceId String?
+  actor      String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resource, resourceId])
+}
+
+/// Top-bar Activity Feed projection. Lazy-built by the
+/// `/api/activity` route, capped at 20 rows.
+model ActivityFeedItem {
+  id         String   @id @default(cuid())
+  kind       String
+  actor      String?
+  action     String?
+  resource   String?
+  resourceId String?
+  preview    String?
+  link       String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }

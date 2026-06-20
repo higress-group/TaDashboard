@@ -1,0 +1,43 @@
+# HiClaw uses Higress as its external API gateway (Consumer credential
+# injection, rate limiting, TLS termination). Traefik ships with k3s by
+# default and binds ports 80/443, which conflicts with Higress on the same
+# node. Disable Traefik at k3s install time (see docs/k3s-deployment.md) and
+# install Higress via scripts/install-higress.sh before applying this file.
+#
+# Higress supports the standard networking.k8s.io/v1 Ingress resource when
+# the ingressClassName is `higress`. Wasm plugins (auth, rate-limit, etc.)
+# belong to extensions.higress.io/v1alpha1 WasmPlugin resources and are not
+# defined here — see Higress docs.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hiclaw-dashboard
+  namespace: hiclaw-system
+  labels:
+    app.kubernetes.io/name: hiclaw-dashboard
+  annotations:
+    # Higress-specific knobs. Drop any of these if you do not need them.
+    higress.io/backend-protocol: HTTP
+    higress.io/timeout: 30s
+    # If you terminate TLS at the Higress gateway-level (recommended),
+    # leave TLS off here. cert-manager can provision the cert via Higress's
+    # Gateway API integration; for the standard Ingress path, reference a
+    # pre-created secret below.
+spec:
+  ingressClassName: higress
+  tls:
+    - hosts:
+        - hiclaw.localhost
+      secretName: hiclaw-dashboard-tls
+  rules:
+    - host: hiclaw.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hiclaw-dashboard
+                port:
+                  number: 80

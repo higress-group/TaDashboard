@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, ReactNode } from 'react';
 
 interface SearchContextType {
   searchQuery: string;
@@ -15,11 +15,14 @@ const SearchContext = createContext<SearchContextType>({
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  return (
-    <SearchContext.Provider value={{ searchQuery, setSearchQuery }}>
-      {children}
-    </SearchContext.Provider>
+  // useMemo the value object so consumers don't re-render on unrelated
+  // parent re-renders (setSearchQuery from useState is already stable).
+  const value = useMemo<SearchContextType>(
+    () => ({ searchQuery, setSearchQuery }),
+    [searchQuery],
   );
+
+  return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
 }
 
 export function useSearch() {

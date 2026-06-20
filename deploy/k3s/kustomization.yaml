@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hiclaw-system
+
+resources:
+  - 00-namespace.yaml
+  - 10-accounts-and-volumes.yaml
+  - 20-hiclaw-controller-config.yaml
+  - 30-hiclaw-controller.yaml
+  - 31-hiclaw-controller-service.yaml
+  - 40-hiclaw-dashboard.yaml
+  - 41-hiclaw-ingress.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: hiclaw

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useResetFlag } from '@/hooks/use-reset-flag';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -19,7 +20,6 @@ import {
   LayoutGrid,
   List,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,6 +84,7 @@ import {
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { StatusDot } from '@/components/dashboard/status-dot';
 import { SectionHeader } from '@/components/dashboard/section-header';
+import { SurfaceEmptyState, SurfaceShell, SurfaceSkeletonGrid } from '@/components/dashboard/surface-shell';
 import { toast } from 'sonner';
 import type { TeamResponse, CreateTeamRequest, UpdateTeamRequest, WorkerResponse, ManagerResponse } from '@/lib/hiclaw-api';
 
@@ -191,11 +192,10 @@ function TeamTopologyDiagram({ team, workers, managers }: {
 
 // ============ Sub-component: Copy Button ============
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useResetFlag(1500);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setCopied();
   };
   return (
     <button
@@ -361,9 +361,8 @@ export function TeamsSection() {
   return (
     <div className="space-y-6">
       {/* Communication Topology - Visual Diagram */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold mb-3">通信拓扑</h3>
+      <SurfaceShell contentClassName="p-4">
+        <h3 className="text-sm font-semibold mb-3">通信拓扑</h3>
           <div className="flex items-center justify-center gap-4 py-4 flex-wrap">
             {/* Manager Node */}
             <div className="flex flex-col items-center">
@@ -404,8 +403,7 @@ export function TeamsSection() {
               <p className="text-[10px] text-muted-foreground mt-1">执行任务</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Header */}
       <SectionHeader
@@ -471,40 +469,27 @@ export function TeamsSection() {
       {/* Teams List */}
       {isLoading ? (
         viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="glass-card">
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-5 w-32 rounded shimmer" />
-                  <div className="h-4 w-24 rounded shimmer" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <SurfaceSkeletonGrid count={6} cols={3} rows={2} />
         ) : (
-          <Card className="glass-card">
-            <CardContent className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-8 w-full rounded shimmer" />
-              ))}
-            </CardContent>
-          </Card>
+          <SurfaceShell contentClassName="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-8 w-full rounded shimmer" />
+            ))}
+          </SurfaceShell>
         )
       ) : sortedTeams.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? '没有匹配的团队' : '暂无团队'}
-            </p>
-            {!searchQuery && (
-              <Button variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+        <SurfaceEmptyState
+          icon={<Users className="w-12 h-12" />}
+          message={searchQuery ? '没有匹配的团队' : '暂无团队'}
+          action={
+            !searchQuery ? (
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
                 <Plus className="w-4 h-4 mr-1" />
                 创建第一个团队
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {/* Card View */}
@@ -518,123 +503,120 @@ export function TeamsSection() {
                   transition={{ delay: i * 0.03 }}
                   layout
                 >
-                  <Card className="glass-card hover-lift">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <StatusDot phase={team.phase} />
-                          <Users className="w-5 h-5 text-emerald-500 shrink-0" />
-                          <span className="font-medium truncate">{team.name}</span>
-                        </div>
-                        <Badge className={TEAM_PHASE_BADGE_CLASSES[team.phase]} variant="secondary">
-                          {TEAM_PHASE_LABELS[team.phase] || team.phase}
-                        </Badge>
+                  <SurfaceShell hover contentClassName="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <StatusDot phase={team.phase} />
+                        <Users className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span className="font-medium truncate">{team.name}</span>
                       </div>
+                      <Badge className={TEAM_PHASE_BADGE_CLASSES[team.phase]} variant="secondary">
+                        {TEAM_PHASE_LABELS[team.phase] || team.phase}
+                      </Badge>
+                    </div>
 
-                      <div className="space-y-1.5 text-sm">
-                        {team.description && (
-                          <p className="text-muted-foreground text-xs line-clamp-2">{team.description}</p>
-                        )}
+                    <div className="space-y-1.5 text-sm">
+                      {team.description && (
+                        <p className="text-muted-foreground text-xs line-clamp-2">{team.description}</p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Leader</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs truncate ml-2 cursor-help">{team.leaderName || '-'}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Leader: {team.leaderName || '未指定'}</p>
+                            <p>就绪状态: {team.leaderReady ? '已就绪' : '未就绪'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Workers</span>
+                        <span className="text-xs">
+                          {team.readyWorkers}/{team.totalWorkers}
+                        </span>
+                      </div>
+                      {team.teamRoomID && (
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Leader</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-xs truncate ml-2 cursor-help">{team.leaderName || '-'}</span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Leader: {team.leaderName || '未指定'}</p>
-                              <p>就绪状态: {team.leaderReady ? '已就绪' : '未就绪'}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Workers</span>
-                          <span className="text-xs">
-                            {team.readyWorkers}/{team.totalWorkers}
-                          </span>
-                        </div>
-                        {team.teamRoomID && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">房间</span>
-                            <div className="flex items-center gap-1 min-w-0 ml-2">
-                              <span className="font-mono text-xs truncate max-w-[60%]">{team.teamRoomID}</span>
-                              <CopyButton text={team.teamRoomID} />
-                            </div>
+                          <span className="text-muted-foreground">房间</span>
+                          <div className="flex items-center gap-1 min-w-0 ml-2">
+                            <span className="font-mono text-xs truncate max-w-[60%]">{team.teamRoomID}</span>
+                            <CopyButton text={team.teamRoomID} />
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
 
-                      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs flex-1"
-                          onClick={() => setDetailTeam(team)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          详情
-                        </Button>
-                        {/* Add Worker to Team - Quick Action */}
-                        <Popover
-                          open={addWorkerPopoverOpen === team.name}
-                          onOpenChange={(open) => setAddWorkerPopoverOpen(open ? team.name : null)}
-                        >
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="添加 Worker">
-                              <UserPlus className="w-3 h-3" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 p-2" align="end">
-                            <div className="space-y-1">
-                              <p className="text-xs font-medium px-2 py-1 text-muted-foreground">可添加的 Workers</p>
-                              {getAvailableWorkers(team.name, team.workerNames || []).length === 0 ? (
-                                <p className="text-xs text-muted-foreground px-2 py-2">没有可添加的 Worker</p>
-                              ) : (
-                                <div className="max-h-40 overflow-y-auto">
-                                  {getAvailableWorkers(team.name, team.workerNames || []).map((w) => (
-                                    <button
-                                      key={w.name}
-                                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-muted/50 transition-colors text-left"
-                                      onClick={() => handleAddWorkerToTeam(team.name, w.name, team.workerNames || [])}
-                                    >
-                                      <StatusDot phase={w.phase} />
-                                      <Bot className="w-3 h-3 text-orange-500" />
-                                      <span className="truncate">{w.name}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setTopologyTeam(team)}
-                          title="查看拓扑"
-                        >
-                          <UserCheck className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => openEdit(team)}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(team.name)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-1"
+                        onClick={() => setDetailTeam(team)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        详情
+                      </Button>
+                      <Popover
+                        open={addWorkerPopoverOpen === team.name}
+                        onOpenChange={(open) => setAddWorkerPopoverOpen(open ? team.name : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" title="添加 Worker">
+                            <UserPlus className="w-3 h-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2" align="end">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium px-2 py-1 text-muted-foreground">可添加的 Workers</p>
+                            {getAvailableWorkers(team.name, team.workerNames || []).length === 0 ? (
+                              <p className="text-xs text-muted-foreground px-2 py-2">没有可添加的 Worker</p>
+                            ) : (
+                              <div className="max-h-40 overflow-y-auto">
+                                {getAvailableWorkers(team.name, team.workerNames || []).map((w) => (
+                                  <button
+                                    key={w.name}
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-muted/50 transition-colors text-left"
+                                    onClick={() => handleAddWorkerToTeam(team.name, w.name, team.workerNames || [])}
+                                  >
+                                    <StatusDot phase={w.phase} />
+                                    <Bot className="w-3 h-3 text-orange-500" />
+                                    <span className="truncate">{w.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setTopologyTeam(team)}
+                        title="查看拓扑"
+                      >
+                        <UserCheck className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => openEdit(team)}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(team.name)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </SurfaceShell>
                 </motion.div>
               ))}
             </div>
@@ -642,7 +624,7 @@ export function TeamsSection() {
 
           {/* Table View */}
           {viewMode === 'table' && (
-            <Card className="glass-card overflow-hidden">
+            <SurfaceShell contentClassName="p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -711,7 +693,7 @@ export function TeamsSection() {
                             onOpenChange={(open) => setAddWorkerPopoverOpen(open ? `table-${team.name}` : null)}
                           >
                             <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="添加 Worker">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="添加 Worker" aria-label="添加 Worker">
                                 <UserPlus className="w-3.5 h-3.5" />
                               </Button>
                             </PopoverTrigger>
@@ -771,7 +753,7 @@ export function TeamsSection() {
                   ))}
                 </TableBody>
               </Table>
-            </Card>
+            </SurfaceShell>
           )}
         </>
       )}
@@ -902,9 +884,13 @@ export function TeamsSection() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              删除
+            <AlertDialogCancel disabled={deleteTeam.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteTeam.isPending}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteTeam.isPending ? '删除中…' : '删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

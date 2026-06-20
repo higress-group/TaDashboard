@@ -19,7 +19,8 @@ import {
   Users,
   Bot,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/dashboard/section-header';
 import { useHumans } from '@/hooks/use-hiclaw-humans';
@@ -52,10 +53,10 @@ function AccessMatrix({ humans, teams, workers }: {
   // Build access matrix: for each human, which teams/workers can they access
   const matrixData = useMemo(() => {
     return humans.map((human) => {
-      const groupAllowFrom = (human as Record<string, unknown>).groupAllowFrom as string[] | undefined;
-      const accessibleTeams = (human as Record<string, unknown>).accessibleTeams as string[] | undefined;
-      const accessibleWorkers = (human as Record<string, unknown>).accessibleWorkers as string[] | undefined;
-      const permLevel = (human as Record<string, unknown>).permissionLevel as number | undefined;
+      const groupAllowFrom = human.groupAllowFrom;
+      const accessibleTeams = human.accessibleTeams;
+      const accessibleWorkers = human.accessibleWorkers;
+      const permLevel = human.permissionLevel;
 
       // Determine accessible teams
       const canAccessAll = permLevel === 3 || (groupAllowFrom && groupAllowFrom.includes('*'));
@@ -200,7 +201,7 @@ export function SecuritySection() {
   const permStats = useMemo(() => {
     const stats = { admin: 0, operator: 0, observer: 0 };
     humans?.forEach((h) => {
-      const level = (h as Record<string, unknown>).permissionLevel as number | undefined;
+      const level = h.permissionLevel;
       if (level === 3) stats.admin++;
       else if (level === 2) stats.operator++;
       else stats.observer++;
@@ -338,19 +339,17 @@ export function SecuritySection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
           >
-            <Card className="glass-card hover-lift">
-              <CardContent className="p-4">
-                <item.icon className={`w-8 h-8 ${item.color} mb-3`} />
+            <SurfaceShell hover>
+              <item.icon className={`w-8 h-8 ${item.color} mb-3`} />
                 <h3 className="font-semibold mb-1">{item.title}</h3>
                 <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         ))}
       </div>
 
       {/* Human Permission Levels - Dynamic from API */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Key className="w-4 h-4" />
@@ -358,8 +357,7 @@ export function SecuritySection() {
             <Badge variant="outline" className="text-[10px] ml-auto">{humans?.length || 0} 用户</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          {humans && humans.length > 0 ? (
+        {humans && humans.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Level 3 - Admin */}
               <div className="p-3 rounded-lg bg-background/50 border border-border/50">
@@ -369,7 +367,7 @@ export function SecuritySection() {
                 </div>
                 <p className="text-xs text-muted-foreground mb-2">可访问所有房间、所有智能体</p>
                 <div className="space-y-1">
-                  {humans.filter((h) => (h as Record<string, unknown>).permissionLevel === 3).map((h) => (
+                  {humans.filter((h) => h.permissionLevel === 3).map((h) => (
                     <div key={h.name} className="flex items-center gap-1.5 text-xs">
                       <CheckCircle2 className="w-3 h-3 text-red-500" />
                       <span>{h.displayName || h.name}</span>
@@ -386,7 +384,7 @@ export function SecuritySection() {
                 </div>
                 <p className="text-xs text-muted-foreground mb-2">指定团队 + 独立 Workers</p>
                 <div className="space-y-1">
-                  {humans.filter((h) => (h as Record<string, unknown>).permissionLevel === 2).map((h) => (
+                  {humans.filter((h) => h.permissionLevel === 2).map((h) => (
                     <div key={h.name} className="flex items-center gap-1.5 text-xs">
                       <CheckCircle2 className="w-3 h-3 text-amber-500" />
                       <span>{h.displayName || h.name}</span>
@@ -404,7 +402,7 @@ export function SecuritySection() {
                 <p className="text-xs text-muted-foreground mb-2">仅指定独立 Workers</p>
                 <div className="space-y-1">
                   {humans.filter((h) => {
-                    const level = (h as Record<string, unknown>).permissionLevel as number | undefined;
+                    const level = h.permissionLevel;
                     return !level || level === 1;
                   }).map((h) => (
                     <div key={h.name} className="flex items-center gap-1.5 text-xs">
@@ -422,36 +420,32 @@ export function SecuritySection() {
               <p className="text-sm text-muted-foreground">暂无用户数据，请先创建 Human 用户</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Visual Access Control Matrix */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Shield className="w-4 h-4" />
             访问控制矩阵
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <AccessMatrix
+        <AccessMatrix
             humans={humans || []}
             teams={(teams || []).map((t) => ({ name: t.name, workerNames: t.workerNames || [] }))}
             workers={(workers || []).map((w) => ({ name: w.name }))}
           />
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Matrix Authentication Status */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Lock className="w-4 h-4" />
             Matrix 认证状态
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Matrix Server Status */}
             <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
               {infra?.matrix?.healthy ? (
@@ -503,13 +497,11 @@ export function SecuritySection() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Credential Zero-Exposure Diagram */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">凭证零暴露</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">凭证零暴露</h2>
           <p className="text-sm text-muted-foreground mb-4">
             所有外部 API 凭证由 Higress 网关统一管理，Worker 无需直接持有 API Key，实现凭证零暴露。
           </p>
@@ -537,13 +529,11 @@ export function SecuritySection() {
               然后转发到目标 API。Worker 容器内始终无法接触到真实 API Key，确保凭证安全。
             </p>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* groupAllowFrom Explanation */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">groupAllowFrom 访问控制</h2>
+      <SurfaceShell>
+        <h2 className="text-lg font-semibold mb-4">groupAllowFrom 访问控制</h2>
           <p className="text-sm text-muted-foreground mb-4">
             <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">groupAllowFrom</code>
             字段限制了 Human 用户可以访问的 Worker 组，实现最小权限原则。
@@ -556,7 +546,7 @@ export function SecuritySection() {
               </p>
               <p className="text-xs text-muted-foreground mt-1">可访问所有 Worker 和团队</p>
               <div className="mt-1.5">
-                {humans?.filter((h) => (h as Record<string, unknown>).permissionLevel === 3).map((h) => (
+                {humans?.filter((h) => h.permissionLevel === 3).map((h) => (
                   <Badge key={h.name} variant="outline" className="text-[10px] mr-1">{h.displayName || h.name}</Badge>
                 ))}
               </div>
@@ -568,7 +558,7 @@ export function SecuritySection() {
               </p>
               <p className="text-xs text-muted-foreground mt-1">仅可访问 team-a 下的 Worker</p>
               <div className="mt-1.5">
-                {humans?.filter((h) => (h as Record<string, unknown>).permissionLevel === 2).map((h) => (
+                {humans?.filter((h) => h.permissionLevel === 2).map((h) => (
                   <Badge key={h.name} variant="outline" className="text-[10px] mr-1">{h.displayName || h.name}</Badge>
                 ))}
               </div>
@@ -581,7 +571,7 @@ export function SecuritySection() {
               <p className="text-xs text-muted-foreground mt-1">仅可访问指定独立 Worker</p>
               <div className="mt-1.5">
                 {humans?.filter((h) => {
-                  const level = (h as Record<string, unknown>).permissionLevel as number | undefined;
+                  const level = h.permissionLevel;
                   return !level || level === 1;
                 }).map((h) => (
                   <Badge key={h.name} variant="outline" className="text-[10px] mr-1">{h.displayName || h.name}</Badge>
@@ -589,11 +579,10 @@ export function SecuritySection() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
 
       {/* Security Best Practices Checklist */}
-      <Card className="glass-card">
+      <SurfaceShell>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
@@ -603,8 +592,7 @@ export function SecuritySection() {
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="space-y-2">
+        <div className="space-y-2">
             {securityChecks.map((check, i) => (
               <motion.div
                 key={check.label}
@@ -644,8 +632,7 @@ export function SecuritySection() {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </SurfaceShell>
     </div>
   );
 }

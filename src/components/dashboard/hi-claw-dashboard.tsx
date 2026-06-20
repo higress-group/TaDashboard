@@ -62,13 +62,16 @@ import { useNotificationStore } from '@/lib/notification-store';
 import { useSearch } from '@/lib/search-context';
 import { useHiClawStatus } from '@/hooks/use-hiclaw-status';
 import { useVersion } from '@/hooks/use-hiclaw-version';
+import { useAutoReconnect } from '@/hooks/use-auto-reconnect';
 import { useWorkers } from '@/hooks/use-hiclaw-workers';
 import { useTeams } from '@/hooks/use-hiclaw-teams';
 import { useManagers } from '@/hooks/use-hiclaw-managers';
 import { ConnectionBanner } from './connection-banner';
 import { SettingsDialog } from './settings-dialog';
 import { NotificationPopover } from './notification-popover';
+import { ActivityFeed } from './activity-feed';
 import { SectionErrorBoundary } from './section-error-boundary';
+import { ModernSectionHeader, useModernChrome, ModernChromeFallback } from './modern-chrome';
 
 // Lazy load sections for performance
 const OverviewSection = lazy(() => import('./sections/overview-section').then(m => ({ default: m.OverviewSection })));
@@ -88,19 +91,19 @@ const QuickstartSection = lazy(() => import('./sections/quickstart-section').the
 const STORAGE_KEY = 'hiclaw-active-section';
 
 const navItems = [
-  { id: 'overview', label: '总览', icon: LayoutDashboard },
-  { id: 'workers', label: 'Workers', icon: Bot },
-  { id: 'teams', label: '团队', icon: Users },
-  { id: 'managers', label: 'Managers', icon: Crown },
-  { id: 'humans', label: 'Humans', icon: UserCheck },
-  { id: 'chat', label: 'Matrix 聊天', icon: MessageSquare },
-  { id: 'infrastructure', label: '基础设施', icon: Server },
-  { id: 'k8s', label: 'K8s 资源', icon: Container },
-  { id: 'skills', label: '技能生态', icon: Sparkles },
-  { id: 'architecture', label: '架构', icon: GitBranch },
-  { id: 'security', label: '安全模型', icon: Shield },
-  { id: 'runtime', label: '多运行时', icon: Cpu },
-  { id: 'quickstart', label: '快速开始', icon: Rocket },
+  { id: 'overview', label: '总览', icon: LayoutDashboard, description: '集群心跳、Worker 阶段分布与资源吞吐一屏可见。' },
+  { id: 'workers', label: 'Workers', icon: Bot, description: 'Worker 实时状态、阶段分布与最近活动。' },
+  { id: 'teams', label: '团队', icon: Users, description: '团队组成、协作关系与 Owner 列表。' },
+  { id: 'managers', label: 'Managers', icon: Crown, description: 'Manager 调度视图、当前负责团队与健康度。' },
+  { id: 'humans', label: 'Humans', icon: UserCheck, description: 'Human 协作成员、当前在线与角色。' },
+  { id: 'chat', label: 'Matrix 聊天', icon: MessageSquare, description: 'Matrix 房间实时消息，支持 A2UI 与 Markdown。' },
+  { id: 'infrastructure', label: '基础设施', icon: Server, description: '拓扑、节点健康与连接关系图。' },
+  { id: 'k8s', label: 'K8s 资源', icon: Container, description: '集群中 Pod / Deployment / Service 实时状态。' },
+  { id: 'skills', label: '技能生态', icon: Sparkles, description: '可用技能、版本与最近一次调用时间。' },
+  { id: 'architecture', label: '架构', icon: GitBranch, description: '系统模块关系与控制流拓扑。' },
+  { id: 'security', label: '安全模型', icon: Shield, description: '认证、授权与凭据生命周期。' },
+  { id: 'runtime', label: '多运行时', icon: Cpu, description: '支持的运行时与当前部署目标。' },
+  { id: 'quickstart', label: '快速开始', icon: Rocket, description: '一键接入 HiClaw + Matrix 的引导步骤。' },
 ];
 
 const sectionMap: Record<string, React.ComponentType> = {
@@ -207,7 +210,7 @@ export function HiClawDashboard() {
   const { data: managers } = useManagers();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
 
   // Debounce search input (300ms)
@@ -226,6 +229,10 @@ export function HiClawDashboard() {
   useEffect(() => {
     checkConnection();
   }, [checkConnection]);
+
+  // Drive the auto-reconnect interval from a React lifecycle so the timer is
+  // cleared on unmount and StrictMode-safe.
+  useAutoReconnect();
 
   // Track last refresh time based on data updates
   useEffect(() => {
@@ -269,8 +276,14 @@ export function HiClawDashboard() {
 
   const ActiveSectionComponent = sectionMap[activeSection] || OverviewSection;
 
+  // Modern chrome applies modern section header / layout primitives around
+  // the legacy section body. When disabled, the body renders inside a
+  // `ModernChromeFallback` notice that explains the migration label.
+  const { enabled: modernChrome } = useModernChrome();
+  const activeMeta = navItems.find((n) => n.id === activeSection);
+
   // Breadcrumb
-  const activeLabel = navItems.find((n) => n.id === activeSection)?.label || '总览';
+  const activeLabel = activeMeta?.label || '总览';
 
   // Count data for badges
   const workerCount = workers?.length ?? 0;
@@ -385,6 +398,8 @@ export function HiClawDashboard() {
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                     title={sidebarCollapsed ? item.label : undefined}
+                    aria-label={item.label}
+                    aria-current={isActive ? 'page' : undefined}
                   >
                     <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-orange-500' : ''}`} />
                     {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
@@ -438,6 +453,7 @@ export function HiClawDashboard() {
                 size="sm"
                 className="w-full justify-center"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                aria-label={sidebarCollapsed ? '展开侧栏' : '折叠侧栏'}
               >
                 {sidebarCollapsed ? (
                   <ChevronRight className="w-4 h-4" />
@@ -473,7 +489,7 @@ export function HiClawDashboard() {
                       </div>
                       <span className="font-bold text-lg">HiClaw</span>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} aria-label="关闭菜单">
                       <X className="w-5 h-5" />
                     </Button>
                   </div>
@@ -492,6 +508,8 @@ export function HiClawDashboard() {
                               ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium'
                               : 'text-muted-foreground hover:bg-accent'
                           }`}
+                          aria-label={item.label}
+                          aria-current={isActive ? 'page' : undefined}
                         >
                           <Icon className={`w-5 h-5 ${isActive ? 'text-orange-500' : ''}`} />
                           <span>{item.label}</span>
@@ -525,12 +543,13 @@ export function HiClawDashboard() {
                 size="icon"
                 className="md:hidden"
                 onClick={() => setMobileMenuOpen(true)}
+                aria-label="打开菜单"
               >
                 <Menu className="w-5 h-5" />
               </Button>
 
               {/* Search */}
-              <div className="relative flex-1 max-w-md">
+              <div className="relative flex-1 max-w-md" role="search">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   ref={searchInputRef}
@@ -538,6 +557,7 @@ export function HiClawDashboard() {
                   value={debouncedQuery}
                   onChange={(e) => setDebouncedQuery(e.target.value)}
                   className="pl-9 h-9 bg-background/50"
+                  aria-label="全局搜索"
                 />
               </div>
 
@@ -596,6 +616,7 @@ export function HiClawDashboard() {
                       className="h-9 w-9"
                       onClick={handleRefreshAll}
                       disabled={isRefreshingAll}
+                      aria-label="刷新所有数据"
                     >
                       <RefreshCw className={`h-4 w-4 ${isRefreshingAll ? 'animate-spin' : ''}`} />
                     </Button>
@@ -629,19 +650,23 @@ export function HiClawDashboard() {
                 {/* Notifications */}
                 <NotificationPopover />
 
+                {/* Activity feed (R6-3) */}
+                <ActivityFeed />
+
                 {/* Theme Toggle */}
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                   className="h-9 w-9"
+                  aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
                 >
                   <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 </Button>
 
                 {/* Settings */}
-                <Button variant="ghost" size="icon" onClick={openSettings} className="h-9 w-9">
+                <Button variant="ghost" size="icon" onClick={openSettings} className="h-9 w-9" aria-label="打开设置">
                   <Settings className="w-4 h-4" />
                 </Button>
               </div>
@@ -662,7 +687,7 @@ export function HiClawDashboard() {
             </div>
 
             {/* Section Content */}
-            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6" aria-label={`${activeLabel} 区域`}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeSection}
@@ -670,10 +695,27 @@ export function HiClawDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
+                  className="space-y-4"
                 >
+                  {modernChrome && (
+                    <ModernSectionHeader
+                      as="h1"
+                      eyebrow={activeMeta?.id?.toUpperCase() ?? 'SECTION'}
+                      title={activeLabel}
+                      description={activeMeta?.description ?? ''}
+                    />
+                  )}
                   <SectionErrorBoundary sectionName={activeLabel}>
                     <Suspense fallback={<SectionSkeleton />}>
-                      <ActiveSectionComponent />
+                      {modernChrome ? (
+                        <ActiveSectionComponent />
+                      ) : (
+                        <ModernChromeFallback
+                          reason={`${activeLabel} not migrated — using legacy chrome`}
+                        >
+                          <ActiveSectionComponent />
+                        </ModernChromeFallback>
+                      )}
                     </Suspense>
                   </SectionErrorBoundary>
                 </motion.div>

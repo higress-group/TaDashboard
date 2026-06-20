@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,7 +90,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 // Derive manager skills dynamically from runtime type and configuration
 function getManagerSkills(manager: ManagerResponse): string[] {
   // If the API returns an explicit skills array, use it
-  const mAny = manager as Record<string, unknown>;
+  const mAny = manager as unknown as Record<string, unknown>;
   if (Array.isArray(mAny.skills)) return mAny.skills as string[];
 
   // Otherwise derive from runtime type
@@ -296,27 +296,22 @@ export function ManagersSection() {
         viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="glass-card">
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-5 w-32 rounded shimmer" />
+              <SurfaceShell key={i}>
+                <div className="h-5 w-32 rounded shimmer" />
                   <div className="h-4 w-24 rounded shimmer" />
-                </CardContent>
-              </Card>
+              </SurfaceShell>
             ))}
           </div>
         ) : (
-          <Card className="glass-card">
-            <CardContent className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
+          <SurfaceShell>
+            {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="h-8 w-full rounded shimmer" />
               ))}
-            </CardContent>
-          </Card>
+          </SurfaceShell>
         )
       ) : sortedManagers.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <Crown className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+        <SurfaceShell>
+          <Crown className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">
               {searchQuery ? '没有匹配的 Manager' : '暂无 Manager'}
             </p>
@@ -326,8 +321,7 @@ export function ManagersSection() {
                 创建第一个 Manager
               </Button>
             )}
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       ) : (
         <>
           {/* Card View */}
@@ -341,9 +335,8 @@ export function ManagersSection() {
                   transition={{ delay: i * 0.03 }}
                   layout
                 >
-                  <Card className="glass-card hover-lift">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
+                  <SurfaceShell hover>
+                    <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <StatusDot phase={manager.phase} />
                           <Crown className="w-5 h-5 text-violet-500 shrink-0" />
@@ -432,8 +425,7 @@ export function ManagersSection() {
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                  </SurfaceShell>
                 </motion.div>
               ))}
             </div>
@@ -441,7 +433,7 @@ export function ManagersSection() {
 
           {/* Table View */}
           {viewMode === 'table' && (
-            <Card className="glass-card overflow-hidden">
+            <SurfaceShell contentClassName="p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -539,7 +531,7 @@ export function ManagersSection() {
                   ))}
                 </TableBody>
               </Table>
-            </Card>
+            </SurfaceShell>
           )}
         </>
       )}

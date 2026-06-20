@@ -1,0 +1,28 @@
+# TaDashboard - Production Docker Compose with Caddy reverse proxy & auto-TLS
+#
+# Usage:
+#   CADDY_DOMAIN=dash.example.com docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires: DNS for CADDY_DOMAIN pointing to this host
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: tadashboard-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - APP_HOST=app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

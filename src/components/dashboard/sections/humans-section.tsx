@@ -16,11 +16,11 @@ import {
   Mail,
   Shield,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { CopyButton } from '@/components/dashboard/copy-button';
 import {
   Tooltip,
   TooltipContent,
@@ -70,8 +70,7 @@ import {
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { StatusDot } from '@/components/dashboard/status-dot';
 import { SectionHeader } from '@/components/dashboard/section-header';
-import { CopyButton } from '@/components/dashboard/copy-button';
-import { TruncatedId } from '@/components/dashboard/truncated-id';
+import { SurfaceEmptyState, SurfaceShell, SurfaceSkeletonGrid } from '@/components/dashboard/surface-shell';
 import { toast } from 'sonner';
 import type { HumanResponse, CreateHumanRequest, UpdateHumanRequest } from '@/lib/hiclaw-api';
 
@@ -199,7 +198,7 @@ export function HumansSection() {
       name: human.name,
       displayName: human.displayName || '',
       email: human.email || '',
-      permissionLevel: human.permissionLevel || 1,
+      permissionLevel: ((human.permissionLevel ?? 1) as 1 | 2 | 3),
       accessibleTeams: human.accessibleTeams || [],
       accessibleWorkers: human.accessibleWorkers || [],
       note: human.note || '',
@@ -258,15 +257,13 @@ export function HumansSection() {
           { key: 'Pending', label: '等待中', icon: UserCheck, color: 'text-yellow-500' },
           { key: 'Failed', label: '失败', icon: UserCheck, color: 'text-red-500' },
         ].map(({ key, label, icon: Icon, color }) => (
-          <Card key={key} className="glass-card">
-            <CardContent className="p-3 flex items-center gap-3">
-              <Icon className={`w-5 h-5 ${color}`} />
-              <div>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-lg font-bold">{phaseStats[key] || 0}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <SurfaceShell key={key} contentClassName="p-3 flex items-center gap-3">
+            <Icon className={`w-5 h-5 ${color}`} />
+            <div>
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-lg font-bold">{phaseStats[key] || 0}</p>
+            </div>
+          </SurfaceShell>
         ))}
       </div>
 
@@ -309,40 +306,27 @@ export function HumansSection() {
       {/* Humans List */}
       {isLoading ? (
         viewMode === 'card' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="glass-card">
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-5 w-32 rounded shimmer" />
-                  <div className="h-4 w-24 rounded shimmer" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <SurfaceSkeletonGrid count={3} cols={3} rows={2} />
         ) : (
-          <Card className="glass-card">
-            <CardContent className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-8 w-full rounded shimmer" />
-              ))}
-            </CardContent>
-          </Card>
+          <SurfaceShell contentClassName="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-8 w-full rounded shimmer" />
+            ))}
+          </SurfaceShell>
         )
       ) : sortedHumans.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="p-12 text-center">
-            <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? '没有匹配的 Human' : '暂无 Human'}
-            </p>
-            {!searchQuery && (
-              <Button variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+        <SurfaceEmptyState
+          icon={<UserCheck className="w-12 h-12" />}
+          message={searchQuery ? '没有匹配的 Human' : '暂无 Human'}
+          action={
+            !searchQuery ? (
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
                 <Plus className="w-4 h-4 mr-1" />
                 创建第一个 Human
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {/* Card View */}
@@ -356,75 +340,73 @@ export function HumansSection() {
                   transition={{ delay: i * 0.03 }}
                   layout
                 >
-                  <Card className="glass-card hover-lift">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <StatusDot phase={human.phase} />
-                          <UserCheck className="w-5 h-5 text-teal-500 shrink-0" />
-                          <span className="font-medium truncate">{human.name}</span>
+                  <SurfaceShell hover contentClassName="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <StatusDot phase={human.phase} />
+                        <UserCheck className="w-5 h-5 text-teal-500 shrink-0" />
+                        <span className="font-medium truncate">{human.name}</span>
+                      </div>
+                      <Badge className={HUMAN_PHASE_BADGE_CLASSES[human.phase]} variant="secondary">
+                        {HUMAN_PHASE_LABELS[human.phase] || human.phase}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">显示名称</span>
+                        <span className="text-xs truncate ml-2">{human.displayName}</span>
+                      </div>
+                      {human.email && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">邮箱</span>
+                          <span className="text-xs truncate ml-2">{human.email}</span>
                         </div>
-                        <Badge className={HUMAN_PHASE_BADGE_CLASSES[human.phase]} variant="secondary">
-                          {HUMAN_PHASE_LABELS[human.phase] || human.phase}
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">权限</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${PERMISSION_BADGE_CLASSES[human.permissionLevel || 1] || ''}`}
+                        >
+                          <Shield className="w-3 h-3 mr-1" />
+                          {PERMISSION_LABELS[human.permissionLevel || 1] || `L${human.permissionLevel || 1}`}
                         </Badge>
                       </div>
-
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">显示名称</span>
-                          <span className="text-xs truncate ml-2">{human.displayName}</span>
-                        </div>
-                        {human.email && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">邮箱</span>
-                            <span className="text-xs truncate ml-2">{human.email}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">权限</span>
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${PERMISSION_BADGE_CLASSES[human.permissionLevel || 1] || ''}`}
-                          >
-                            <Shield className="w-3 h-3 mr-1" />
-                            {PERMISSION_LABELS[human.permissionLevel || 1] || `L${human.permissionLevel || 1}`}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">房间</span>
-                          <span className="text-xs text-muted-foreground">{human.rooms?.length || 0} 个</span>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">房间</span>
+                        <span className="text-xs text-muted-foreground">{human.rooms?.length || 0} 个</span>
                       </div>
+                    </div>
 
-                      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs flex-1"
-                          onClick={() => setDetailHuman(human)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          详情
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => openEdit(human)}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(human.name)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-1"
+                        onClick={() => setDetailHuman(human)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        详情
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => openEdit(human)}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(human.name)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </SurfaceShell>
                 </motion.div>
               ))}
             </div>
@@ -432,7 +414,7 @@ export function HumansSection() {
 
           {/* Table View */}
           {viewMode === 'table' && (
-            <Card className="glass-card overflow-hidden">
+            <SurfaceShell contentClassName="p-0 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -516,7 +498,7 @@ export function HumansSection() {
                   ))}
                 </TableBody>
               </Table>
-            </Card>
+            </SurfaceShell>
           )}
         </>
       )}
@@ -614,9 +596,13 @@ export function HumansSection() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              删除
+            <AlertDialogCancel disabled={deleteHuman.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteHuman.isPending}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteHuman.isPending ? '删除中…' : '删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

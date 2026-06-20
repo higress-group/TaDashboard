@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import type { VersionInfo } from '@/lib/hiclaw-api';
 
 export function useVersion() {
@@ -7,8 +8,7 @@ export function useVersion() {
     queryKey: ['hiclaw-version'],
     queryFn: () => hiclawApi.getVersion(),
     refetchInterval: 300000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: (previousData) => previousData,
-    throwOnError: false,
   });
 }

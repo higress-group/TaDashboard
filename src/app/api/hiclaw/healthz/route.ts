@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { proxyToHiClaw, getControllerUrl } from '../proxy-helper';
 
-// 轻量级本地健康检查，仅确认 Next.js 进程存活。
-// 用于 Kubernetes livenessProbe；不依赖后端 Controller。
-export async function GET() {
-  return new NextResponse('ok', {
-    status: 200,
-    headers: { 'Content-Type': 'text/plain' },
+export async function GET(request: NextRequest) {
+  return proxyToHiClaw(request, getControllerUrl(request), '/healthz', {
+    forwardBody: false,
   });
 }
+
+export const runtime = 'nodejs';

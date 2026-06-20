@@ -1,0 +1,50 @@
+name: Bug Report
+description: Report a defect in TaDashboard behaviour, rendering, or API handling.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How broken is it?
+      options:
+        - S0 — dashboard unusable for primary task
+        - S1 — feature broken, workaround exists
+        - S2 — minor defect, cosmetic, or rare
+      validations:
+        required: true
+  - type: input
+    id: version
+    attributes:
+      label: TaDashboard version
+      description: Tag, commit SHA, or container image digest.
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        - Browser + version
+        - HiClaw Controller version
+        - NEXT_PUBLIC_HICLAW_CONTROLLER_URL (sanitized)
+        - Relevant env vars
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      render: shell

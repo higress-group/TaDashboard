@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import {
   Tooltip,
@@ -12,7 +13,7 @@ interface TruncatedIdProps {
   label: string;
 }
 
-export function TruncatedId({ value, label }: TruncatedIdProps) {
+function TruncatedIdImpl({ value, label }: TruncatedIdProps) {
   if (!value || value === '-') {
     return <span className="text-xs text-muted-foreground">-</span>;
   }
@@ -32,3 +33,7 @@ export function TruncatedId({ value, label }: TruncatedIdProps) {
     </div>
   );
 }
+
+// Used in tables that re-render on any data update. memo skips work
+// when neither value nor label changed.
+export const TruncatedId = memo(TruncatedIdImpl);

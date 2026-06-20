@@ -1,6 +1,8 @@
 // Matrix Client-Server API Client
 // All requests go through Next.js API proxy routes to the Matrix homeserver
 
+import { ApiClientError } from "./api-errors";
+
 export interface MatrixLoginResponse {
   access_token: string;
   user_id: string;
@@ -92,8 +94,7 @@ export const matrixApi = {
       body: JSON.stringify({ homeserver, username, password }),
     });
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Login failed' }));
-      throw new Error(data.error || `Login failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', '/login');
     }
     return res.json();
   },
@@ -108,8 +109,7 @@ export const matrixApi = {
     if (since) params.set('since', since);
     const res = await fetch(`/api/matrix/sync?${params}`);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Sync failed' }));
-      throw new Error(data.error || `Sync failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', '/sync');
     }
     return res.json();
   },
@@ -119,8 +119,7 @@ export const matrixApi = {
     const params = new URLSearchParams({ homeserver, accessToken });
     const res = await fetch(`/api/matrix/joined-rooms?${params}`);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Failed to get joined rooms' }));
-      throw new Error(data.error || `Failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', '/joined-rooms');
     }
     return res.json();
   },
@@ -142,8 +141,7 @@ export const matrixApi = {
     const encodedRoomId = encodeURIComponent(roomId);
     const res = await fetch(`/api/matrix/rooms/${encodedRoomId}/messages?${params}`);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Failed to get messages' }));
-      throw new Error(data.error || `Failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', `/rooms/${encodedRoomId}/messages`);
     }
     return res.json();
   },
@@ -154,8 +152,7 @@ export const matrixApi = {
     const encodedRoomId = encodeURIComponent(roomId);
     const res = await fetch(`/api/matrix/rooms/${encodedRoomId}/members?${params}`);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Failed to get members' }));
-      throw new Error(data.error || `Failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', `/rooms/${encodedRoomId}/members`);
     }
     return res.json();
   },
@@ -166,8 +163,7 @@ export const matrixApi = {
     const encodedRoomId = encodeURIComponent(roomId);
     const res = await fetch(`/api/matrix/rooms/${encodedRoomId}/state?${params}`);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Failed to get room state' }));
-      throw new Error(data.error || `Failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', `/rooms/${encodedRoomId}/state`);
     }
     return res.json();
   },
@@ -192,8 +188,7 @@ export const matrixApi = {
       }),
     });
     if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Failed to send message' }));
-      throw new Error(data.error || `Failed: ${res.status}`);
+      throw await ApiClientError.fromResponse(res, 'matrix', `/rooms/${encodedRoomId}/send`);
     }
     return res.json();
   },

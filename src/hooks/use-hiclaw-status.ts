@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import { useHiClawStore } from '@/lib/hiclaw-store';
 
 export function useHiClawStatus() {
@@ -10,8 +11,7 @@ export function useHiClawStatus() {
       return hiclawApi.checkHealth(store.controllerUrl);
     },
     refetchInterval: 15000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: 'checking',
-    throwOnError: false,
   });
 }

@@ -1,26 +1,14 @@
 // Shared proxy helper for HiClaw API routes
 import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync } from 'node:fs';
+import { jsonErrorBody, statusToCode, type ApiErrorBody } from '@/lib/api-errors';
+import { isAllowedHiclawUrl } from '@/lib/url-allow-list';
 
 const TIMEOUT_MS = 10000;
 
-// Allowed controller URL hosts to prevent SSRF (only applies to user-supplied ?controllerUrl=)
-// In production/k3s mode the env var HICLAW_CONTROLLER_URL is authoritative.
-const ALLOWED_HOSTS = [
-  'localhost',
-  '127.0.0.1',
-  '0.0.0.0',
-  '::1',
-  'hiclaw-controller',
-  'hiclaw-controller.hiclaw-system',
-  'hiclaw-controller.hiclaw-system.svc',
-  'hiclaw-controller.hiclaw-system.svc.cluster.local',
-];
-
 function readAuthTokenFromFile(path: string): string | undefined {
   try {
-    // Use dynamic import so this code can still run in non-Node environments (e.g. tests)
-    const fs = require('fs');
-    return fs.readFileSync(path, 'utf-8').trim();
+    return readFileSync(path, 'utf-8').trim();
   } catch {
     return undefined;
   }
@@ -51,22 +39,10 @@ export function getControllerUrl(request: NextRequest): string {
   const defaultUrl = getDefaultControllerUrl();
   const url = request.nextUrl.searchParams.get('controllerUrl');
   if (url) {
-    try {
-      const parsed = new URL(url);
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        throw new Error('Invalid protocol');
-      }
-      if (
-        !ALLOWED_HOSTS.includes(parsed.hostname) &&
-        !parsed.hostname.endsWith('.svc') &&
-        !parsed.hostname.endsWith('.svc.cluster.local') &&
-        !parsed.hostname.endsWith('.cluster.local') &&
-        !parsed.hostname.endsWith('.local')
-      ) {
-        throw new Error('Host not allowed');
-      }
-    } catch {
-      // If validation fails, fall back to default
+    if (!isAllowedHiclawUrl(url)) {
+      // Host not on the allow-list; fall back to the configured default
+      // rather than 400-ing, because the dashboard's main code path
+      // (settings dialog, store updates) only ever sends env-derived URLs.
       return defaultUrl;
     }
     return url;
@@ -136,17 +112,46 @@ export async function proxyToHiClaw(
     const resCT = res.headers.get('content-type');
     if (resCT) responseHeaders.set('content-type', resCT);
 
+    // Normalize non-2xx responses into the standard error envelope
+    if (!res.ok) {
+      const text = new TextDecoder().decode(data);
+      let parsed: unknown = text;
+      try {
+        parsed = text ? JSON.parse(text) : text;
+      } catch {
+        // keep raw text
+      }
+      const code = statusToCode(res.status);
+      const message =
+        typeof parsed === "object" && parsed && "message" in parsed && typeof (parsed as { message?: unknown }).message === "string"
+          ? (parsed as { message: string }).message
+          : `HiClaw controller returned ${res.status}`;
+      const body: ApiErrorBody = {
+        error: {
+          code,
+          message,
+          upstream: { service: "hiclaw", status: res.status, path },
+          ...(parsed !== text ? { details: parsed } : {}),
+        },
+      };
+      return NextResponse.json(body, { status: res.status });
+    }
+
     return new NextResponse(data, {
       status: res.status,
       headers: responseHeaders,
     });
   } catch (err: unknown) {
     clearTimeout(timeout);
-    const message = err instanceof Error && err.name === 'AbortError'
-      ? 'Request timeout'
+    const isTimeout = err instanceof Error && err.name === 'AbortError';
+    const message = isTimeout
+      ? 'HiClaw controller request timed out'
       : err instanceof Error
         ? err.message
-        : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+        : 'Unknown HiClaw controller error';
+    const body = jsonErrorBody(isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE', message, {
+      upstream: { service: 'hiclaw', path },
+    });
+    return NextResponse.json(body, { status: isTimeout ? 504 : 502 });
   }
 }

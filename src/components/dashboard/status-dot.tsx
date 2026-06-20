@@ -1,10 +1,11 @@
 'use client';
 
+import { memo } from 'react';
 import type { WorkerPhase, ManagerPhase, TeamPhase, HumanPhase } from '@/lib/hiclaw-api';
 
 type StatusPhase = WorkerPhase | ManagerPhase | TeamPhase | HumanPhase;
 
-export function StatusDot({ phase }: { phase: StatusPhase }) {
+function StatusDotImpl({ phase }: { phase: StatusPhase }) {
   let dotClass = 'bg-gray-400';
   let pulseClass = '';
 
@@ -35,3 +36,8 @@ export function StatusDot({ phase }: { phase: StatusPhase }) {
     <span className={`inline-block w-2 h-2 rounded-full ${dotClass} ${pulseClass}`} />
   );
 }
+
+// Pure prop (string literal), no state, 26+ usages across sections.
+// React.memo skips re-renders when the phase string reference is
+// unchanged (typical when only a single worker's data updates).
+export const StatusDot = memo(StatusDotImpl);

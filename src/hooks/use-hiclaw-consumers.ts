@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { hiclawApi } from '@/lib/hiclaw-api';
+import { DEFAULT_QUERY_CONFIG } from '@/lib/query-config';
 import type { ConsumerResponse } from '@/lib/hiclaw-api';
 
 export function useConsumers() {
@@ -7,8 +8,7 @@ export function useConsumers() {
     queryKey: ['hiclaw-consumers'],
     queryFn: () => hiclawApi.listConsumers(),
     refetchInterval: 30000,
-    retry: 1,
+    ...DEFAULT_QUERY_CONFIG,
     placeholderData: (previousData) => previousData,
-    throwOnError: false,
   });
 }

@@ -1,55 +1,61 @@
 'use client';
 
 import { Component, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Button } from '@/components/ui/button';
 
-interface Props {
+interface SectionErrorBoundaryProps {
   children: ReactNode;
+  /** Display name so the fallback can identify the section. */
+  title?: string;
+  /** Alias for `title`, kept for caller readability. */
   sectionName?: string;
 }
 
-interface State {
-  hasError: boolean;
+interface SectionErrorBoundaryState {
   error: Error | null;
 }
 
-export class SectionErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false, error: null };
+/**
+ * Localized React error boundary for dashboard sections. A failure in
+ * one panel does not break the rest of the page; users get a "重试"
+ * button that clears the state and re-renders the subtree.
+ */
+export class SectionErrorBoundary extends Component<SectionErrorBoundaryProps, SectionErrorBoundaryState> {
+  state: SectionErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): SectionErrorBoundaryState {
+    return { error };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  override componentDidCatch(error: Error, info: { componentStack?: string }): void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[SectionErrorBoundary]', error, info.componentStack);
+    }
   }
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
-            <AlertTriangle className="w-7 h-7 text-amber-500" />
-          </div>
-          <p className="text-lg font-medium mb-1">该模块遇到了问题</p>
-          <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-            {this.props.sectionName ? `"${this.props.sectionName}" ` : ''}渲染时发生错误
+  reset = (): void => {
+    this.setState({ error: null });
+  };
+
+  override render(): ReactNode {
+    if (!this.state.error) return this.props.children;
+    const label = this.props.title ?? this.props.sectionName;
+    return (
+      <SurfaceShell className="border-rose-500/30" contentClassName="p-4 flex items-start gap-2" role="alert">
+        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-rose-600 dark:text-rose-400">
+            {label ? `${label} 加载失败：` : '本区块加载失败：'}
+            {this.state.error.message}
           </p>
-          <p className="text-xs text-muted-foreground font-mono mb-4 max-w-md text-center break-all">
-            {this.state.error?.message}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] mt-1" onClick={this.reset} aria-label="重试加载本区块">
+            <RotateCcw className="w-3 h-3 mr-1" aria-hidden="true" />
             重试
           </Button>
         </div>
-      );
-    }
-
-    return this.props.children;
+      </SurfaceShell>
+    );
   }
 }

@@ -1,0 +1,67 @@
+# Dependencies
+node_modules
+
+# Build output
+.next
+out
+dist
+build
+
+# Development
+.git
+.gitignore
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test & Coverage
+tests
+coverage
+vitest.config.ts
+
+# Documentation
+docs
+*.md
+!README.md
+LICENSE
+CONTRIBUTING.md
+SECURITY.md
+
+# Deploy & scripts (not needed in image)
+deploy
+k8s
+scripts
+.caddy
+Caddyfile
+
+# Dev-only files
+dev-server.sh
+start-server.sh
+keep-alive.sh
+server-runner.mjs
+.eslint*
+.prettierrc*
+
+# Misc
+agent-ctx
+worklog.md
+download
+examples
+mock
+mini-services
+.zscripts
+.env*
+!.env.example
+db/*.db
+db/*.db-journal

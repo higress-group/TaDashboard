@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hiclaw-controller
+  namespace: hiclaw-system
+  labels:
+    app.kubernetes.io/name: hiclaw-controller
+    app.kubernetes.io/part-of: hiclaw
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hiclaw-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hiclaw-controller
+        app.kubernetes.io/part-of: hiclaw
+    spec:
+      serviceAccountName: hiclaw-controller
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      containers:
+        - name: controller
+          # Replace with the real image once published. MOCK_IMAGE is a placeholder
+          # that runs scripts/mock-hiclaw.mjs inside the dashboard image so a
+          # brand-new cluster can render UI before the controller ships.
+          image: hiclaw-dashboard:dev
+          imagePullPolicy: IfNotPresent
+          command: ["node", "scripts/mock-hiclaw.mjs"]
+          ports:
+            - name: http
+              containerPort: 8090
+          envFrom:
+            - configMapRef:
+                name: hiclaw-controller-config
+          env:
+            - name: PORT
+              value: "8090"
+            - name: HOST
+              value: "0.0.0.0"
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hiclaw-controller-data
+        - name: tmp
+          emptyDir: {}

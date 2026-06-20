@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { ApiErrorCode } from './api-errors';
 
 export interface ConnectionAttempt {
   timestamp: number;
@@ -9,10 +10,15 @@ export interface ConnectionAttempt {
   error: string | null;
 }
 
-interface HiClawState {
+export interface ConnectionErrorInfo {
+  code: ApiErrorCode | 'NETWORK_ERROR' | 'UNKNOWN';
+  message: string;
+}
+
+export interface HiClawState {
   controllerUrl: string;
   isConnected: boolean;
-  connectionError: string | null;
+  connectionError: ConnectionErrorInfo | null;
   isChecking: boolean;
   settingsOpen: boolean;
   autoReconnect: boolean;
@@ -31,6 +37,28 @@ interface HiClawState {
 }
 
 const MAX_HISTORY = 5;
+
+async function readErrorInfo(res: Response, fallback: string): Promise<ConnectionErrorInfo> {
+  try {
+    const payload = await res.clone().json();
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'error' in payload &&
+      payload.error &&
+      typeof (payload.error as { code?: unknown }).code === 'string'
+    ) {
+      const err = payload.error as { code: string; message?: string };
+      return {
+        code: err.code as ApiErrorCode,
+        message: typeof err.message === 'string' ? err.message : fallback,
+      };
+    }
+  } catch {
+    // fall through to default
+  }
+  return { code: 'UNKNOWN', message: fallback };
+}
 
 export const useHiClawStore = create<HiClawState>()(
   persist(
@@ -81,19 +109,24 @@ export const useHiClawStore = create<HiClawState>()(
               return true;
             }
           }
+          const info = await readErrorInfo(res, '连接失败');
           const attempt: ConnectionAttempt = {
             timestamp: Date.now(),
             url,
             success: false,
             latency,
-            error: '连接失败',
+            error: info.message,
           };
           const history = [attempt, ...get().connectionHistory].slice(0, MAX_HISTORY);
-          set({ isConnected: false, connectionError: '连接失败', isChecking: false, connectionHistory: history });
+          set({ isConnected: false, connectionError: info, isChecking: false, connectionHistory: history });
           return false;
         } catch (err) {
           const latency = Math.round(performance.now() - start);
           const message = err instanceof Error ? err.message : '连接失败';
+          const info: ConnectionErrorInfo = {
+            code: 'NETWORK_ERROR',
+            message,
+          };
           const attempt: ConnectionAttempt = {
             timestamp: Date.now(),
             url,
@@ -102,7 +135,7 @@ export const useHiClawStore = create<HiClawState>()(
             error: message,
           };
           const history = [attempt, ...get().connectionHistory].slice(0, MAX_HISTORY);
-          set({ isConnected: false, connectionError: message, isChecking: false, connectionHistory: history });
+          set({ isConnected: false, connectionError: info, isChecking: false, connectionHistory: history });
           return false;
         }
       },
@@ -134,54 +167,3 @@ export const useHiClawStore = create<HiClawState>()(
     }
   )
 );
-
-// Global auto-reconnect effect - subscribes to store and manages interval outside React
-let reconnectTimer: ReturnType<typeof setInterval> | null = null;
-
-function startAutoReconnect() {
-  stopAutoReconnect();
-  const { reconnectInterval, isConnected, isChecking, settingsOpen } = useHiClawStore.getState();
-  
-  // Don't start if already connected, currently checking, or settings open
-  if (isConnected || isChecking || settingsOpen) return;
-
-  reconnectTimer = setInterval(() => {
-    const state = useHiClawStore.getState();
-    // Only attempt if auto-reconnect is on, not connected, not checking, and settings not open
-    if (state.autoReconnect && !state.isConnected && !state.isChecking && !state.settingsOpen) {
-      state.checkConnection();
-    } else if (state.isConnected || !state.autoReconnect) {
-      // Stop if connected or auto-reconnect disabled
-      stopAutoReconnect();
-    }
-  }, reconnectInterval);
-}
-
-function stopAutoReconnect() {
-  if (reconnectTimer !== null) {
-    clearInterval(reconnectTimer);
-    reconnectTimer = null;
-  }
-}
-
-// Subscribe to store changes to manage auto-reconnect.
-// Guard with window check so this does not run during SSR / Next.js build.
-if (typeof window !== 'undefined') {
-  useHiClawStore.subscribe((state, prevState) => {
-  const shouldReconnect = state.autoReconnect && !state.isConnected && !state.settingsOpen;
-  const wasReconnecting = prevState.autoReconnect && !prevState.isConnected && !prevState.settingsOpen;
-
-  if (shouldReconnect && !wasReconnecting) {
-    // Disconnected or autoReconnect turned on or settings closed
-    startAutoReconnect();
-  } else if (!shouldReconnect && wasReconnecting) {
-    // Connected or autoReconnect turned off or settings opened
-    stopAutoReconnect();
-  }
-  
-  // If reconnectInterval changed while reconnecting, restart with new interval
-  if (state.reconnectInterval !== prevState.reconnectInterval && shouldReconnect) {
-    startAutoReconnect();
-  }
-  });
-}

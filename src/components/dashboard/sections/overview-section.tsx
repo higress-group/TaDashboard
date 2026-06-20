@@ -24,7 +24,8 @@ import {
   MessageCircle,
   Eye,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardHeader, CardTitle } from '@/components/ui/card';
+import { SurfaceShell } from '@/components/dashboard/surface-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -71,9 +72,8 @@ function useRefreshCountdown(intervalMs: number) {
 function AnimatedStat({ value, label, icon: Icon, color, sub }: { value: number | null; label: string; icon: React.ComponentType<{ className?: string }>; color: string; sub?: React.ReactNode }) {
   const animatedValue = useCounter(value ?? 0, 800);
   return (
-    <Card className="glass-card hover-lift">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
+    <SurfaceShell hover>
+      <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">{label}</p>
             {value !== null ? (
@@ -85,8 +85,7 @@ function AnimatedStat({ value, label, icon: Icon, color, sub }: { value: number 
           </div>
           <Icon className={`w-8 h-8 ${color} opacity-80 flex-shrink-0`} />
         </div>
-      </CardContent>
-    </Card>
+    </SurfaceShell>
   );
 }
 
@@ -285,7 +284,7 @@ export function OverviewSection() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card p-3 flex flex-wrap items-center gap-2"
+        className="p-3 flex flex-wrap items-center gap-2"
       >
         {/* Connection Status */}
         <Badge
@@ -397,12 +396,11 @@ export function OverviewSection() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Worker Phase Distribution PieChart */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-            <Card className="glass-card">
+            <SurfaceShell>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Worker 阶段分布</CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-0">
-                {phaseData.length > 0 ? (
+              {phaseData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie
@@ -428,18 +426,16 @@ export function OverviewSection() {
                     暂无 Worker 数据
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
 
           {/* Team Readiness BarChart */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="glass-card">
+            <SurfaceShell>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">团队就绪状态</CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-0">
-                {teamReadinessData.length > 0 ? (
+              {teamReadinessData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={teamReadinessData}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
@@ -456,8 +452,7 @@ export function OverviewSection() {
                     暂无团队数据
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SurfaceShell>
           </motion.div>
         </div>
       )}
@@ -466,15 +461,14 @@ export function OverviewSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Activity Feed */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card className="glass-card">
+          <SurfaceShell>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Activity className="w-4 h-4 text-orange-500" />
                 操作动态
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
-              {recentActivity.length > 0 ? (
+            {recentActivity.length > 0 ? (
                 <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-0.5">
                   {recentActivity.map((n) => (
                     <ActivityFeedItem key={n.id} notification={n} />
@@ -487,21 +481,19 @@ export function OverviewSection() {
                   <p className="text-xs">执行操作后将在此显示</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </SurfaceShell>
         </motion.div>
 
         {/* Infrastructure Health */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="glass-card">
+          <SurfaceShell>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Server className="w-4 h-4 text-cyan-500" />
                 基础设施健康
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
-              {isConnected && infrastructure ? (
+            {isConnected && infrastructure ? (
                 <div className="space-y-2">
                   <HealthCard
                     name="MinIO"
@@ -542,16 +534,14 @@ export function OverviewSection() {
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </SurfaceShell>
         </motion.div>
       </div>
 
       {/* ===== Row 5: Quick Actions ===== */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-2">
+        <SurfaceShell>
+          <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">快捷操作:</span>
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { window.location.hash = 'workers'; }}>
                 <Plus className="w-3.5 h-3.5" />
@@ -579,8 +569,7 @@ export function OverviewSection() {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </SurfaceShell>
       </motion.div>
     </div>
   );

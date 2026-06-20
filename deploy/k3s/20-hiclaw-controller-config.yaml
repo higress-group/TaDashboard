@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hiclaw-controller-config
+  namespace: hiclaw-system
+data:
+  # Bootstrap config consumed by the real controller, or used as reference
+  # by the mock when MOCK_MODE=1.
+  CONTROLLER_PORT: "8090"
+  CONTROLLER_LOG_LEVEL: "info"
+  MATRIX_HOMESERVER: "https://matrix.hiclaw.local"
+  MINIO_ENDPOINT: "http://minio.hiclaw-system:9000"
+  HIGRESS_ENDPOINT: "http://higress.hiclaw-system:8080"
+  KUBE_MODE: "true"
