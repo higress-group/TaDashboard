@@ -58,7 +58,7 @@ export function synthesizeMetrics(name: string, phase: WorkerPhase | string | un
 
   let phaseCpu = cpuPct;
   let phaseMem = memPct;
-  let phaseDisk = diskPct;
+  const phaseDisk = diskPct;
   switch (phase) {
     case 'Sleeping':
       phaseCpu = Math.min(5, cpuPct);

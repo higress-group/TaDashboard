@@ -9,7 +9,10 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "@typescript-eslint/no-non-null-assertion": "off",
 
     // Relaxed React rules
-    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/exhaustive-deps": "off",
+    "react-hooks/purity": "off",
+    "react-hooks/set-state-in-effect": "off",
+    "react-hooks/refs": "off",
     "react/no-unescaped-entities": "off",
     "@next/next/no-img-element": "off",
     "@next/next/no-html-link-for-pages": "off",

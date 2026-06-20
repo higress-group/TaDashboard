@@ -103,7 +103,7 @@ describe('/api/audit payload limits', () => {
   });
 
   it('rejects metadata that is too deeply nested', async () => {
-    let node: Record<string, unknown> = {};
+    const node: Record<string, unknown> = {};
     let cursor = node;
     for (let i = 0; i < 5; i++) {
       cursor.next = {};
