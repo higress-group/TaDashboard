@@ -1,0 +1,40 @@
+# TaDashboard - Docker Compose one-click deployment
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose down            # Stop all services
+#   docker compose logs -f app     # Follow app logs
+#
+# Customize via .env file (see .env.example)
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tadashboard
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=file:/app/db/custom.db
+      - HICLAW_CONTROLLER_URL=${HICLAW_CONTROLLER_URL:-http://hiclaw-controller:8090}
+      - HICLAW_AUTH_TOKEN=${HICLAW_AUTH_TOKEN:-}
+      - NEXT_PUBLIC_HICLAW_CONTROLLER_URL=${NEXT_PUBLIC_HICLAW_CONTROLLER_URL:-}
+      - NEXT_PUBLIC_MATRIX_API_URL=${NEXT_PUBLIC_MATRIX_API_URL:-}
+      - MATRIX_ALLOWED_HOSTS=${MATRIX_ALLOWED_HOSTS:-}
+      - NEXT_PUBLIC_MATRIX_TOKEN_PERSIST=${NEXT_PUBLIC_MATRIX_TOKEN_PERSIST:-session}
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - dashboard-db:/app/db
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  dashboard-db:
+    driver: local

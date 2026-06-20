@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 RUN \
   if [ -f bun.lock ]; then \
-    npm install --no-audit --no-fund; \
+    npm ci --no-audit --no-fund; \
   else \
     echo "Lockfile not found." && exit 1; \
   fi
@@ -22,7 +22,14 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY prisma ./prisma
+COPY package.json ./
+COPY next.config.ts ./
+COPY tsconfig.json ./
+COPY postcss.config.mjs ./
+COPY components.json ./
+COPY public ./public
+COPY src ./src
 
 RUN npx prisma generate && \
     npm run build
@@ -46,7 +53,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static    ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public            ./public
 
-# Local SQLite directory (mounted as PVC in k3s)
+# Local SQLite directory (mounted as PVC in k3s or Docker volume)
 RUN mkdir -p /app/db && chown -R nextjs:nodejs /app/db
 
 USER nextjs
