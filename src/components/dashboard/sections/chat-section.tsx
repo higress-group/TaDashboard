@@ -110,13 +110,18 @@ function isDifferentDay(ts1: number, ts2: number): boolean {
     d1.getDate() !== d2.getDate();
 }
 
-// Lightweight heuristic: a body that contains Markdown markers
-// (`[` link, `*` emphasis, backtick code, fenced ```) or any HTML
-// tag benefits from the renderer. Plain prose falls through to the
-// `<p class="whitespace-pre-wrap">` branch.
+// Heuristic: detect Markdown or HTML in a message body. We keep this
+// conservative enough that plain prose still falls through to the
+// simple `<p>` branch, but broad enough to catch headings, lists,
+// quotes, links, emphasis, code, fenced blocks and raw HTML.
 function looksLikeMarkdown(body: string): boolean {
   if (!body) return false;
-  return /(\[[^\]]+\]\(|`[^`]+`|\*\*|__|`{3}|<\/?[a-z][^>]*>)/i.test(body);
+  return /(\[[^\]]+\]\(|`[^`]+`|\*\*|__|\b_|\b_|`{3}|^\s{0,3}#{1,6}\s|^\s{0,3}[-*+]\s|^\s{0,3}>\s?|^\s{0,3}\d+\.\s|^\s{0,3}---\s*$)/im.test(body);
+}
+
+function looksLikeHtml(body: string): boolean {
+  if (!body) return false;
+  return /<\/?[a-z][^>]*>/i.test(body);
 }
 
 // ============ Copy Button ============
@@ -395,7 +400,22 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
                 </p>
               );
             }
-            // A2UI surface takes priority — Agents that emit a structured
+
+            const contentFormat = (message.rawContent?.format as string | undefined) ?? '';
+            const isMatrixHtml = contentFormat === 'org.matrix.custom.html';
+
+            // 1. Matrix formatted_body (HTML) — only when the message explicitly
+            // declares it as HTML, so we don't accidentally treat random text as HTML.
+            if (isMatrixHtml && message.formattedContent) {
+              return (
+                <div
+                  className="matrix-html-content text-sm"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.formattedContent) }}
+                />
+              );
+            }
+
+            // 2. A2UI surface takes priority — Agents that emit a structured
             // form should never have their JSON dumped as text.
             const a2ui = parseA2UIPayload(message.rawContent as Record<string, unknown> | undefined);
             if (a2ui) {
@@ -408,22 +428,19 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
                 />
               );
             }
-            if (message.formattedContent) {
+
+            // 3. Markdown / HTML in body. We default to the Markdown pipeline
+            // for non-empty bodies: remark leaves plain prose essentially
+            // unchanged, while real Markdown/HTML gets proper styling.
+            if (message.content && (looksLikeMarkdown(message.content) || looksLikeHtml(message.content))) {
               return (
                 <div
-                  className="matrix-html-content [&>p]:mb-1 [&>br]:block [&>pre]:bg-muted/50 [&>pre]:rounded [&>pre]:p-2 [&>code]:bg-muted/50 [&>code]:px-1 [&>code]:rounded text-sm"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.formattedContent) }}
-                />
-              );
-            }
-            if (looksLikeMarkdown(message.content)) {
-              return (
-                <div
-                  className="matrix-html-content [&>p]:mb-1 [&>br]:block [&>pre]:bg-muted/50 [&>pre]:rounded [&>pre]:p-2 [&>code]:bg-muted/50 [&>code]:px-1 [&>code]:rounded text-sm"
+                  className="matrix-html-content text-sm"
                   dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(message.content) }}
                 />
               );
             }
+
             return <p className="whitespace-pre-wrap">{message.content}</p>;
           })()}
         </div>

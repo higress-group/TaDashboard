@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Send, Sparkles } from 'lucide-react';
 import { type A2UINode, type A2UIAction } from '@/lib/a2ui';
+import { renderInlineMarkdown } from '@/lib/markdown';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { isAllowedMatrixUrl } from '@/lib/url-allow-list';
 
 export interface A2UIRendererProps {
   node: A2UINode;
@@ -81,11 +84,29 @@ function Node({ node }: { node: A2UINode }) {
         </div>
       );
     case 'text':
+      if (node.markdown) {
+        return (
+          <div
+            className="matrix-html-content text-sm"
+            dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(node.text) }}
+          />
+        );
+      }
       return <p className="text-sm text-foreground whitespace-pre-wrap">{node.text}</p>;
-    case 'image':
+    case 'image': {
+      const safeUrl = node.url && isAllowedMatrixUrl(node.url) ? node.url : '';
+      if (!safeUrl) {
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-muted/50 text-muted-foreground border border-border">
+            <AlertCircle className="w-3 h-3" />
+            Image URL not allowed
+          </span>
+        );
+      }
       return (
-        <img src={node.url} alt={node.alt ?? ''} className="max-w-full rounded" />
+        <img src={safeUrl} alt={sanitizeHtml(node.alt ?? '')} className="max-w-full rounded" />
       );
+    }
     case 'button':
       return <ButtonNode label={node.label} action={node.action} />;
     case 'text-input':

@@ -14,7 +14,7 @@ export type A2UINode =
   | { kind: 'card'; children: A2UINode[] }
   | { kind: 'row'; children: A2UINode[] }
   | { kind: 'column'; children: A2UINode[] }
-  | { kind: 'text'; text: string }
+  | { kind: 'text'; text: string; markdown?: boolean }
   | { kind: 'image'; url: string; alt?: string }
   | { kind: 'button'; label: string; action?: A2UIAction }
   | { kind: 'text-input'; name: string; label?: string; placeholder?: string; value?: string }
@@ -31,6 +31,7 @@ export interface A2UIComponent {
   id: string;
   type: string;
   text?: string;
+  markdown?: boolean;
   label?: string;
   name?: string;
   placeholder?: string;
@@ -88,8 +89,15 @@ export function parseA2UIPayload(
   body: Record<string, unknown> | null | undefined,
 ): A2UIParseResult | null {
   if (!body || typeof body !== 'object') return null;
+
+  // Accept a2ui in several common envelopes so Agents don't have to guess
+  // the exact nesting. Matrix message content is the body itself; some
+  // bridges/payloads wrap it under `content` or `payload`.
   const candidate =
-    (body.a2ui as unknown) ?? (body.content as { a2ui?: unknown })?.a2ui ?? null;
+    (body.a2ui as unknown) ??
+    (body.content as { a2ui?: unknown })?.a2ui ??
+    (body.payload as { a2ui?: unknown })?.a2ui ??
+    null;
   if (!candidate || typeof candidate !== 'object') return null;
   const doc = candidate as A2UIDocument;
   if (typeof doc.root !== 'string') return null;
@@ -131,7 +139,7 @@ function renderComponent(
         submit: renderAction(component.action),
       };
     case 'text':
-      return { kind: 'text', text: component.text ?? '' };
+      return { kind: 'text', text: component.text ?? '', markdown: component.markdown === true };
     case 'image':
       return { kind: 'image', url: component.url ?? '', alt: component.alt };
     case 'button':
