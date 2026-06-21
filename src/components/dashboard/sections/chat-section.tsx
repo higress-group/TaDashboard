@@ -58,6 +58,7 @@ import { sanitizeHtml, renderInlineMarkdown } from '@/lib/sanitize';
 import { ApiErrorState } from '@/components/dashboard/api-error-state';
 import { SectionHeader } from '@/components/dashboard/section-header';
 import { TypingRow } from '@/components/dashboard/chat/typing-row';
+import { TypewriterContent } from '@/components/dashboard/chat/typewriter-content';
 import { createTypingPublisher } from '@/lib/typing';
 import { parseA2UIPayload, renderA2UI } from '@/lib/a2ui';
 import { useUiStore } from '@/lib/ui-store';
@@ -122,6 +123,43 @@ function looksLikeMarkdown(body: string): boolean {
 function looksLikeHtml(body: string): boolean {
   if (!body) return false;
   return /<\/?[a-z][^>]*>/i.test(body);
+}
+
+const GROUPING_WINDOW_MS = 30_000;
+
+/**
+ * Combine consecutive plain-text messages from the same sender within
+ * `GROUPING_WINDOW_MS` into a single bubble. This prevents Agents that
+ * emit several short Matrix events in rapid succession from flooding the
+ * UI with tiny bubbles, and gives us a single surface for the typewriter
+ * streaming effect.
+ */
+function groupConsecutiveMessages(messages: DisplayMessage[]): DisplayMessage[] {
+  const grouped: DisplayMessage[] = [];
+
+  for (const msg of messages) {
+    const last = grouped[grouped.length - 1];
+    const isPlainText = msg.type === 'm.text' && !msg.formattedContent && !parseA2UIPayload(msg.rawContent);
+    const lastIsPlainText = last?.type === 'm.text' && !last.formattedContent && !parseA2UIPayload(last.rawContent);
+
+    const canGroup =
+      last &&
+      last.sender === msg.sender &&
+      lastIsPlainText &&
+      isPlainText &&
+      msg.timestamp - last.timestamp <= GROUPING_WINDOW_MS;
+
+    if (canGroup && last) {
+      last.content = last.content ? `${last.content}\n\n${msg.content}` : msg.content;
+      // Keep the earliest timestamp so the bubble stays anchored in time.
+      last.timestamp = Math.min(last.timestamp, msg.timestamp);
+      last.id = msg.id; // id of the most recent event in the group
+    } else {
+      grouped.push({ ...msg });
+    }
+  }
+
+  return grouped;
 }
 
 // ============ Copy Button ============
@@ -353,7 +391,15 @@ function DateSeparator({ date }: { date: string }) {
 
 // ============ Message Bubble ============
 
-function MessageBubble({ message, showSender }: { message: DisplayMessage; showSender: boolean }) {
+interface MessageBubbleProps {
+  message: DisplayMessage;
+  showSender: boolean;
+  shouldTypewrite?: boolean;
+  onTypewriteTick?: () => void;
+  onTypewriteComplete?: () => void;
+}
+
+function MessageBubble({ message, showSender, shouldTypewrite, onTypewriteTick, onTypewriteComplete }: MessageBubbleProps) {
   const modernChatEnabled = useUiStore((s) => s.modernChatEnabled);
   const time = formatTime(message.timestamp);
   const isNotice = message.type === 'm.notice';
@@ -433,6 +479,16 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
             // for non-empty bodies: remark leaves plain prose essentially
             // unchanged, while real Markdown/HTML gets proper styling.
             if (message.content && (looksLikeMarkdown(message.content) || looksLikeHtml(message.content))) {
+              if (shouldTypewrite) {
+                return (
+                  <TypewriterContent
+                    content={message.content}
+                    isMarkdown
+                    onTick={onTypewriteTick}
+                    onComplete={onTypewriteComplete}
+                  />
+                );
+              }
               return (
                 <div
                   className="matrix-html-content text-sm"
@@ -441,6 +497,15 @@ function MessageBubble({ message, showSender }: { message: DisplayMessage; showS
               );
             }
 
+            if (shouldTypewrite) {
+              return (
+                <TypewriterContent
+                  content={message.content}
+                  onTick={onTypewriteTick}
+                  onComplete={onTypewriteComplete}
+                />
+              );
+            }
             return <p className="whitespace-pre-wrap">{message.content}</p>;
           })()}
         </div>
@@ -464,6 +529,12 @@ function ChatPanel({ room }: { room: RoomInfo }) {
   const [autoScroll, setAutoScroll] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingPublisherRef = useRef<ReturnType<typeof createTypingPublisher> | null>(null);
+  const [typedMessageIds, setTypedMessageIds] = useState<Set<string>>(new Set());
+
+  // Reset typing state when switching rooms so previous streams don't leak.
+  useEffect(() => {
+    setTypedMessageIds(new Set());
+  }, [room.id]);
 
   // R1-1: publish typing notifications while the local user composes.
   useEffect(() => {
@@ -486,21 +557,31 @@ function ChatPanel({ room }: { room: RoomInfo }) {
     }
   }, [inputValue]);
 
-  // Flatten all pages of messages
+  // Flatten all pages of messages and group rapid consecutive same-sender
+  // plain-text messages so Agents don't appear to "spam" multiple bubbles.
   const allMessages = useMemo(() => {
     const pages = messagesQuery.data?.pages || [];
     const events = pages.flatMap((page) => page.chunk || []);
     const reversed = [...events].reverse();
-    return reversed
+    const formatted = reversed
       .map((e) => formatMatrixEvent(e, userId))
       .filter((m): m is DisplayMessage => m !== null);
+    return groupConsecutiveMessages(formatted);
   }, [messagesQuery.data, userId]);
+
+  // Identify the latest message from another user so we can stream-type it.
+  const latestOtherMessageId = useMemo(() => {
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      if (!allMessages[i].isMe) return allMessages[i].id;
+    }
+    return null;
+  }, [allMessages]);
 
   // Compute display messages with sender grouping and day separators
   const displayItems = useMemo(() => {
     const items: Array<
       | { type: 'date'; date: string; key: string }
-      | { type: 'message'; message: DisplayMessage; showSender: boolean; key: string }
+      | { type: 'message'; message: DisplayMessage; showSender: boolean; key: string; shouldTypewrite: boolean }
     > = [];
 
     allMessages.forEach((msg, i) => {
@@ -512,16 +593,20 @@ function ChatPanel({ room }: { room: RoomInfo }) {
         items.push({ type: 'date', date: formatDate(msg.timestamp), key: `date-${msg.timestamp}` });
       }
 
+      const shouldTypewrite =
+        msg.id === latestOtherMessageId && !msg.isMe && !typedMessageIds.has(msg.id);
+
       items.push({
         type: 'message',
         message: msg,
         showSender,
         key: msg.id,
+        shouldTypewrite,
       });
     });
 
     return items;
-  }, [allMessages]);
+  }, [allMessages, latestOtherMessageId, typedMessageIds]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -687,7 +772,20 @@ function ChatPanel({ room }: { room: RoomInfo }) {
                 item.type === 'date' ? (
                   <DateSeparator key={item.key} date={item.date} />
                 ) : (
-                  <MessageBubble key={item.key} message={item.message} showSender={item.showSender} />
+                  <MessageBubble
+                    key={item.key}
+                    message={item.message}
+                    showSender={item.showSender}
+                    shouldTypewrite={item.shouldTypewrite}
+                    onTypewriteTick={() => {
+                      if (autoScroll && scrollRef.current) {
+                        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                      }
+                    }}
+                    onTypewriteComplete={() => {
+                      setTypedMessageIds((prev) => new Set(prev).add(item.message.id));
+                    }}
+                  />
                 )
               )}
             </>
