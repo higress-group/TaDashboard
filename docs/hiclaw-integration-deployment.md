@@ -178,3 +178,153 @@ kubectl -n hiclaw-system rollout undo deploy/hiclaw-dashboard
 ```bash
 kubectl delete -k deploy/k3s-with-hiclaw
 ```
+
+---
+
+## 故障排查
+
+### Controller 返回 401，`service account UID does not match claim`
+
+**现象**
+
+- Dashboard 页面能打开，但调用 `/api/hiclaw/*` 返回 401 Unauthorized。
+- Controller 日志出现：
+
+  ```text
+  [AUTH] authentication failed: token not authenticated:
+  service account UID (NEW_UID) does not match claim (OLD_UID)
+  ```
+
+- `/api/hiclaw/infrastructure` 中的 `kubernetes` 可能显示 `healthy: false`。
+
+**原因**
+
+Dashboard Pod 使用 `hiclaw-manager` ServiceAccount 的 projected token 访问 Controller。
+如果 HiClaw Helm release 被卸载/重装、或者 `hiclaw-manager` SA 被删除重建，SA 的 UID 会改变，
+但旧 Pod 中的 token 仍然缓存着旧 UID，导致 Controller 的 TokenReview 校验失败。
+
+**解决**
+
+重启 Dashboard Deployment，让 Pod 重新挂载新 SA 的 token：
+
+```bash
+kubectl -n hiclaw-system rollout restart deploy/hiclaw-dashboard
+kubectl -n hiclaw-system rollout status deploy/hiclaw-dashboard --timeout=180s
+```
+
+如果重启后仍然 `ImagePullBackOff`，说明 k3s 本地 containerd 中 dashboard 镜像丢失，需要重新导入：
+
+```bash
+cd /root/TaDashboard
+docker save hiclaw-dashboard:dev -o /tmp/dashboard-image.tar
+k3s ctr images import /tmp/dashboard-image.tar
+rm -f /tmp/dashboard-image.tar
+kubectl -n hiclaw-system rollout restart deploy/hiclaw-dashboard
+```
+
+**避免**
+
+- 不要随意删除 HiClaw 创建的 ServiceAccount（`hiclaw-controller`、`hiclaw-manager`）。
+- 如果必须重装 HiClaw，重装后顺手重启一次 Dashboard Pod：
+
+  ```bash
+  kubectl -n hiclaw-system rollout restart deploy/hiclaw-dashboard
+  ```
+
+### Dashboard Pod `ImagePullBackOff`
+
+**现象**
+
+```text
+Failed to pull image "hiclaw-dashboard:dev":
+failed to resolve reference "docker.io/library/hiclaw-dashboard:dev": 403 Forbidden
+```
+
+**原因**
+
+k3s 节点本地 containerd 没有 `hiclaw-dashboard:dev` 镜像，kubelet 尝试从 docker.io 拉取并失败。
+
+**解决**
+
+重新执行构建脚本：
+
+```bash
+cd /root/TaDashboard
+scripts/build-and-load-image.sh
+```
+
+或手动导入已构建的镜像：
+
+```bash
+docker save hiclaw-dashboard:dev -o /tmp/dashboard-image.tar
+k3s ctr images import /tmp/dashboard-image.tar
+rm -f /tmp/dashboard-image.tar
+kubectl -n hiclaw-system rollout restart deploy/hiclaw-dashboard
+```
+
+### Higress gateway 长时间 `ContainerCreating`
+
+**现象**
+
+`higress-gateway` 或 `higress-controller` Pod 长时间处于 `ContainerCreating`，外部访问无响应。
+
+**原因**
+
+HiClaw 镜像较大（尤其 higress gateway/controller），在弱网环境下拉取耗时很长。
+
+**解决**
+
+等待镜像拉取完成：
+
+```bash
+kubectl -n hiclaw-system get events --sort-by='.lastTimestamp' | tail -20
+```
+
+如果节点磁盘/网络资源紧张，可以临时 stop dashboard 构建时不需要的 HiClaw workload 来加速镜像拉取，但生产环境不建议这样做。
+
+### Matrix 登录报 `Homeserver host not allowed`
+
+**现象**
+
+`/api/matrix/login` 返回：
+
+```json
+{"error":{"code":"FORBIDDEN","message":"Homeserver host not allowed"}}
+```
+
+**原因**
+
+浏览器提交的 Matrix homeserver URL 不在服务端白名单内。
+
+**解决**
+
+确认 `MATRIX_ALLOWED_HOSTS` 包含你的访问域名，例如：
+
+```yaml
+MATRIX_ALLOWED_HOSTS: "dashboard.hiclaw.local,hiclaw-tuwunel.hiclaw-system,hiclaw-tuwunel.hiclaw-system.svc.cluster.local,localhost,127.0.0.1"
+```
+
+修改位置：`deploy/k3s-with-hiclaw/20-dashboard.yaml`。
+
+同时确认 `hostAliases` 中 higress-gateway 的 cluster IP 正确：
+
+```bash
+kubectl -n hiclaw-system get svc higress-gateway -o jsonpath='{.spec.clusterIP}'
+```
+
+如果 IP 变了，同步更新 `20-dashboard.yaml` 中的 `hostAliases` 并重新部署。
+
+### `.localhost` 域名浏览器强制 HTTPS
+
+**现象**
+
+访问 `http://hiclaw.localhost` 被浏览器自动跳转到 `https://hiclaw.localhost`，提示访问被拒绝。
+
+**原因**
+
+浏览器默认把 `.localhost` 视为本地安全域，强制 HTTPS。
+
+**解决**
+
+改用 `.local` 后缀（如 `dashboard.hiclaw.local`）或真实域名 / `nip.io`。
+
